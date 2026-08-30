@@ -1,0 +1,71 @@
+# Roadmap
+
+本文按依赖顺序列出接下来的实现。稳定产品规则见 [design.md](design.md)，已实现结构见 [architecture.md](architecture.md)。
+
+## 当前基线
+
+已经完成：
+
+- Global/Workspace Markdown Store；
+- Workspace key、frontmatter 校验、派生 `MEMORY.md`；
+- revision/CAS、scope lock 和原子提交；
+- Global 与当前 Workspace index 的动态 Prompt context；
+- `memory_update`；
+- loopback RPC 的 `status`、`global/read`、`global/replace`；
+- Settings 中的 Status 与 Global 编辑；
+- Host、Browser、协议和 Store 的基础测试；
+- 本地 Bundle 安装、Web boot、Client bundle 与代表性 RPC 冒烟。
+
+## M1：Workspace 管理
+
+这是下一项功能。它先把已有 Store 能力完整暴露给用户，也为 Session 整理提供可观察、可修正的目标数据。
+
+实现：
+
+1. Host Workspace catalog：从 memory root 枚举 Workspace，并返回 opaque `workspaceId`、显示名、revision 和统计；
+2. `workspaces/list`：不暴露绝对路径或内部 key；
+3. `workspace/read`：返回派生索引和结构化记录；
+4. `workspace/commit`：一次 CAS 批量执行 put/delete，并只发布一个新 generation；
+5. Workspaces UI：选择、刷新、查看、创建、编辑、删除；
+6. 冲突体验：旧 revision 保存时展示冲突并保留用户未提交内容；
+7. Store/RPC/UI 测试与真实 Web GIF。
+
+完成标准：Browser 不直接写文件；任意非法 Workspace id、记录或 response 都被拒绝；一次批量提交不会产生部分写入；刷新后 UI 与 Markdown 一致。
+
+## M2：Session 浏览与资格判定
+
+先实现纯读取数据通路，不调用模型：
+
+1. 注入 `sessionPersistence` 与 live Session registry；
+2. 通过后端无关 API 列出 snapshot；
+3. 排除 live、无 cwd、不属于可解析 Workspace 或 revision 不稳定的 Session；
+4. `sessions/list` 返回可整理状态、原因和最新 receipt 摘要；
+5. Sessions UI 展示列表与禁用原因。
+
+完成标准：不扫描 `.dsh` JSONL；重启后结果仍来自持久化 API；当前正在运行的 Session 永远不可整理。
+
+## M3：手动 Session Consolidator
+
+1. 冻结 source Session revision 与当前 Workspace generation；
+2. 创建受限 worker Agent/Session；
+3. 提供完整逻辑事件和现有 Workspace 记忆；
+4. 接收 `put | delete | no-change` 结构化 proposal；
+5. 二次检查 source 与 target revision；
+6. 通过 `MemoryStore` 一次提交；
+7. 写入稳定 Markdown receipt；
+8. 接通 `sessions/consolidate` 与 Sessions UI。
+
+完成标准：无部分写入；重复成功 review 不再次调用模型；取消、冲突、非法输出和 Provider 失败都有 receipt；整理过程可从 worker Session 回放。
+
+## M4：真实使用后的评估
+
+第一版闭环运行后再设计：
+
+- 提取与合并 Prompt 的版本化；
+- 固定 Session 数据集和 replay eval；
+- 访问证据与 recall usefulness；
+- 合并、归档和淘汰策略；
+- 自动 idle/周期调度；
+- 远程执行环境的只读 memory mount。
+
+不要在 M1–M3 期间预先加入向量库、多 Provider、知识图谱、跨 Workspace recall、importance/tag 字段或策略自修改。

@@ -1,0 +1,4 @@
+# dsh-memory contributes one Host plugin; its browser half is discovered through dsh.client.
+- insert:
+    - id: dsh-memory
+      name: '@hr98w/dsh-memory'
