@@ -7,6 +7,9 @@ import {
   parseMemoryStatus,
   type MemoryRpcResult,
 } from '../protocol.ts'
+import { en, zh, type MemoryTranslate } from './locales.ts'
+
+const LOCALE_NAMESPACE = 'settings.memory'
 
 interface BrowserConnection {
   readonly isLoopback: boolean
@@ -22,26 +25,43 @@ interface BrowserSlots {
     id: string
     order: number
     label: () => string
+    locale: string
     inject: () => { api: MemoryApi; loopback: boolean }
   }, component: unknown): () => void
 }
 
-interface BrowserContext {
+interface BrowserLocale {
+  register(namespace: string, dictionaries: {
+    readonly zh: Readonly<Record<string, string>>
+    readonly en: Readonly<Record<string, string>>
+  }): () => void
+  bind(namespace: string): MemoryTranslate
+}
+
+export interface BrowserContext {
   readonly connection: BrowserConnection
   readonly slots: BrowserSlots
+  readonly locale: BrowserLocale
+  effect(callback: () => void | (() => void), label?: string): void
 }
 
 /** Browser services required by the Settings contribution. */
-export const inject = ['slots', 'connection']
+export const inject = ['slots', 'locale', 'connection']
 
 /** Register the independent Memory settings section. */
 export function apply(ctx: BrowserContext): void {
+  ctx.effect(
+    () => ctx.locale.register(LOCALE_NAMESPACE, { zh, en }),
+    'dsh-memory: settings dictionaries',
+  )
+  const t = ctx.locale.bind(LOCALE_NAMESPACE)
   const api = createMemoryApi(ctx.connection)
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'memory',
     order: 30,
-    label: () => 'Memory',
+    label: () => t('nav'),
+    locale: LOCALE_NAMESPACE,
     inject: () => ({ api, loopback: ctx.connection.isLoopback }),
   }, MemorySection))
 }

@@ -12,7 +12,7 @@ Before changing behavior, read:
 4. [docs/roadmap.md](docs/roadmap.md) for the next milestone;
 5. [docs/development.md](docs/development.md) for verification and release commands.
 
-Read the relevant record under `decisions/implemented/` before changing an established architectural choice.
+Read the relevant record under `docs/decisions/implemented/` before changing an established architectural choice.
 
 ## Product boundaries
 
@@ -39,7 +39,7 @@ docs/architecture.md         Implemented structure and request flows
 docs/design.md               Stable product rules and deliberate exclusions
 docs/roadmap.md              Ordered implementation milestones
 docs/development.md          Commands, verification, and release discipline
-decisions/implemented/       Durable non-trivial decisions
+docs/decisions/implemented/  Durable non-trivial decisions
 cordis.patch.yml             Bundle layer that inserts the Host entry
 ```
 
@@ -90,7 +90,7 @@ Report only checks actually run.
 - Update README status and `docs/architecture.md` when behavior ships.
 - Update `docs/roadmap.md` when a milestone starts, completes, or changes order.
 - Change `docs/design.md` only for durable product decisions, not implementation narration.
-- Add `decisions/implemented/<kind>/<date>-<slug>.md` for non-trivial architecture, behavior, security, persistence, or protocol choices. Use `Problem`, `Decision`, `Alternatives considered`, and `Consequences`.
+- Add `docs/decisions/implemented/<kind>/<date>-<slug>.md` for non-trivial architecture, behavior, security, persistence, or protocol choices. Use `Problem`, `Decision`, `Alternatives considered`, and `Consequences`.
 - Keep prose current-state and concise. Do not preserve review history or reasoning transcripts in code comments.
 
 ## Current priority

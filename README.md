@@ -9,7 +9,7 @@
   <img src="https://badgen.net/badge/format/DSH%20bundle/8257D0" alt="DSH bundle" />
 </p>
 
-> 当前状态：首个可运行基础里程碑。Global/Workspace Markdown 存储、Prompt 注入、`memory_update`、loopback RPC 和 Global 设置页已经实现；下一项工作是 Workspace 管理，之后是 Session Consolidator。
+> 当前状态：首个可运行基础里程碑。Global/Workspace Markdown 存储、Prompt 注入、`memory_update`、loopback RPC 和中英文 Global 设置页已经实现；下一项工作是 Workspace 管理，之后是 Session Consolidator。
 
 ## 它解决什么问题
 
@@ -46,7 +46,7 @@ $DSH_HOME/memory/
 
 | 页面 | 状态 | 作用 |
 |---|---|---|
-| Global | 已实现 | 查看、编辑并 CAS 保存 `GLOBAL.md` |
+| Global | 已实现 | 跟随 DSH Web 中英文设置，查看、编辑并 CAS 保存 `GLOBAL.md` |
 | Workspaces | 待实现 | 浏览派生索引与详细记忆，执行批量 mutation |
 | Sessions | 待实现 | 选择稳定 Session，手动触发 Consolidator 并查看 receipt |
 
@@ -93,7 +93,7 @@ dsh plugin --profile web add "github:vlln/plugin-registry#path:/packages/plugin/
 - [设计](docs/design.md)：稳定产品规则和第一版边界；
 - [路线图](docs/roadmap.md)：按依赖排序的后续功能；
 - [开发](docs/development.md)：命令、验证矩阵与发布纪律；
-- [首个架构决策](decisions/implemented/architecture/2026-08-28-host-client-foundation.md)：为什么第一条实现竖切从这些组件开始。
+- [首个架构决策](docs/decisions/implemented/architecture/2026-08-28-host-client-foundation.md)：为什么第一条实现竖切从这些组件开始。
 
 ## 安全边界
 

@@ -32,8 +32,9 @@ Agent step                    Web Browser
 | `src/index.ts` | Host Cordis entry；组合 Service、Prompt、Tool 和 loopback RPC Consumer |
 | `src/memory-store.ts` | Markdown Provider；格式校验、revision、CAS、scope lock、原子发布和索引重建 |
 | `src/protocol.ts` | Host/Browser 共用的 wire 类型和双侧运行时解析 |
-| `src/client/index.ts` | Browser Cordis entry；注册 `settings.section` 并封装 `/memory` Client |
+| `src/client/index.ts` | Browser Cordis entry；注册中英文字典与 `settings.section`，并封装 `/memory` Client |
 | `src/client/MemorySection.tsx` | Status、Global 编辑器及后续 Workspaces/Sessions 页面席位 |
+| `src/client/locales.ts` | Memory 设置页完整的 `zh` / `en` 文案字典 |
 | `cordis.patch.yml` | Bundle patch；向 Host 组合插入唯一的 `dsh-memory` row |
 
 ## MemoryStore

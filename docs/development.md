@@ -71,7 +71,7 @@ npm publish --access public
 
 ## 变更纪律
 
-- 非平凡行为变化增加 `decisions/implemented/<kind>/` 记录；
+- 非平凡行为变化增加 `docs/decisions/implemented/<kind>/` 记录；
 - 生成的 `lib/` 只由构建产生，不手工编辑；
 - 新模型可见内容必须能从 Session 日志重建；
 - 新 RPC endpoint 同时验证 request 和 response；

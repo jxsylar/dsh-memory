@@ -7,6 +7,7 @@ import type {
   MemoryRevision,
   MemoryStatus,
 } from '../protocol.ts'
+import type { MemoryTranslate } from './locales.ts'
 
 /** Host operations used by the Settings component. */
 export interface MemoryApi {
@@ -19,18 +20,23 @@ export interface MemoryApi {
 export interface MemorySectionInjected {
   readonly api: MemoryApi
   readonly loopback: boolean
+  readonly t: MemoryTranslate
 }
 
 type Tab = 'global' | 'workspaces' | 'sessions'
+type ErrorState =
+  | { readonly kind: 'conflict' }
+  | { readonly kind: 'message'; readonly value: string }
 
 /** Render status plus Global, Workspaces, and Sessions tabs. */
 export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
+  const { t } = props
   const [tab, setTab] = useState<Tab>('global')
   const [status, setStatus] = useState<MemoryStatus>()
   const [global, setGlobal] = useState<GlobalMemoryView>()
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string>()
+  const [error, setError] = useState<ErrorState>()
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!props.loopback) return
@@ -45,7 +51,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       setGlobal(nextGlobal)
       setDraft(nextGlobal.content)
     } catch (cause: unknown) {
-      if (!signal?.aborted) setError(cause instanceof Error ? cause.message : String(cause))
+      if (!signal?.aborted) setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       if (!signal?.aborted) setBusy(false)
     }
@@ -64,39 +70,39 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
     try {
       const result = await props.api.replaceGlobal({ expectedRevision: global.revision, content: draft })
       if (result.status === 'conflict') {
-        setError('GLOBAL.md changed since this page loaded. Refresh before saving again.')
+        setError({ kind: 'conflict' })
         return
       }
       await refresh()
     } catch (cause: unknown) {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       setBusy(false)
     }
   }
 
   if (!props.loopback) {
-    return <section style={styles.page}><h2>Memory</h2><p>This page is available only from the loopback Web host.</p></section>
+    return <section style={styles.page}><h2>{t('title')}</h2><p>{t('loopbackOnly')}</p></section>
   }
 
   return (
     <section style={styles.page}>
       <header style={styles.header}>
         <div>
-          <h2 style={styles.title}>Memory</h2>
-          <p style={styles.subtitle}>Local Markdown memory managed by the Host.</p>
+          <h2 style={styles.title}>{t('title')}</h2>
+          <p style={styles.subtitle}>{t('subtitle')}</p>
         </div>
-        <button type="button" style={styles.button} disabled={busy} onClick={() => { void refresh() }}>Refresh</button>
+        <button type="button" style={styles.button} disabled={busy} onClick={() => { void refresh() }}>{t('refresh')}</button>
       </header>
 
       <div style={styles.status}>
-        <span><strong>Status:</strong> {status === undefined ? 'Loading…' : 'Enabled'}</span>
-        <span><strong>Global:</strong> {status?.globalBytes ?? 0} bytes</span>
-        <span><strong>Workspaces:</strong> {status?.workspaceCount ?? 0}</span>
-        <span style={styles.path}><strong>Root:</strong> {status?.root ?? '—'}</span>
+        <span><strong>{t('status')}</strong> {status === undefined ? t('loading') : t('enabled')}</span>
+        <span><strong>{t('global')}</strong> {t('bytes', { count: status?.globalBytes ?? 0 })}</span>
+        <span><strong>{t('workspaces')}</strong> {status?.workspaceCount ?? 0}</span>
+        <span style={styles.path}><strong>{t('root')}</strong> {status?.root ?? '—'}</span>
       </div>
 
-      <nav style={styles.tabs} aria-label="Memory sections">
+      <nav style={styles.tabs} aria-label={t('sections')}>
         {(['global', 'workspaces', 'sessions'] as const).map(id => (
           <button
             key={id}
@@ -104,12 +110,16 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
             style={{ ...styles.tab, ...(tab === id ? styles.activeTab : {}) }}
             onClick={() => { setTab(id) }}
           >
-            {id[0]!.toUpperCase()}{id.slice(1)}
+            {t(`${id}Tab`)}
           </button>
         ))}
       </nav>
 
-      {error === undefined ? null : <p role="alert" style={styles.error}>{error}</p>}
+      {error === undefined ? null : (
+        <p role="alert" style={styles.error}>
+          {error.kind === 'conflict' ? t('conflict') : error.value}
+        </p>
+      )}
 
       {tab === 'global' ? (
         <div style={styles.panel}>
@@ -124,14 +134,14 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
           <div style={styles.actions}>
             <code style={styles.revision}>{global?.revision ?? '—'}</code>
             <button type="button" style={styles.primaryButton} disabled={busy || global === undefined} onClick={() => { void save() }}>
-              Save Global Memory
+              {t('saveGlobal')}
             </button>
           </div>
         </div>
       ) : (
         <div style={styles.placeholder}>
-          <strong>{tab === 'workspaces' ? 'Workspace memory management' : 'Session consolidation'}</strong>
-          <p>This surface is reserved by the architecture and will be connected in the next implementation milestone.</p>
+          <strong>{tab === 'workspaces' ? t('workspacePlaceholder') : t('sessionPlaceholder')}</strong>
+          <p>{t('placeholderBody')}</p>
         </div>
       )}
     </section>
