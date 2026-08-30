@@ -82,32 +82,32 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   }
 
   if (!props.loopback) {
-    return <section style={styles.page}><h2>{t('title')}</h2><p>{t('loopbackOnly')}</p></section>
+    return <section style={memorySectionStyles.page}><h2>{t('title')}</h2><p>{t('loopbackOnly')}</p></section>
   }
 
   return (
-    <section style={styles.page}>
-      <header style={styles.header}>
-        <div>
-          <h2 style={styles.title}>{t('title')}</h2>
-          <p style={styles.subtitle}>{t('subtitle')}</p>
+    <section style={memorySectionStyles.page}>
+      <header style={memorySectionStyles.header}>
+        <div style={memorySectionStyles.heading}>
+          <h2 style={memorySectionStyles.title}>{t('title')}</h2>
+          <p style={memorySectionStyles.subtitle}>{t('subtitle')}</p>
         </div>
-        <button type="button" style={styles.button} disabled={busy} onClick={() => { void refresh() }}>{t('refresh')}</button>
+        <button type="button" style={memorySectionStyles.button} disabled={busy} onClick={() => { void refresh() }}>{t('refresh')}</button>
       </header>
 
-      <div style={styles.status}>
+      <div style={memorySectionStyles.status}>
         <span><strong>{t('status')}</strong> {status === undefined ? t('loading') : t('enabled')}</span>
         <span><strong>{t('global')}</strong> {t('bytes', { count: status?.globalBytes ?? 0 })}</span>
         <span><strong>{t('workspaces')}</strong> {status?.workspaceCount ?? 0}</span>
-        <span style={styles.path}><strong>{t('root')}</strong> {status?.root ?? '—'}</span>
+        <span style={memorySectionStyles.path}><strong>{t('root')}</strong> {status?.root ?? '—'}</span>
       </div>
 
-      <nav style={styles.tabs} aria-label={t('sections')}>
+      <nav style={memorySectionStyles.tabs} aria-label={t('sections')}>
         {(['global', 'workspaces', 'sessions'] as const).map(id => (
           <button
             key={id}
             type="button"
-            style={{ ...styles.tab, ...(tab === id ? styles.activeTab : {}) }}
+            style={{ ...memorySectionStyles.tab, ...(tab === id ? memorySectionStyles.activeTab : {}) }}
             onClick={() => { setTab(id) }}
           >
             {t(`${id}Tab`)}
@@ -116,30 +116,29 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       </nav>
 
       {error === undefined ? null : (
-        <p role="alert" style={styles.error}>
+        <p role="alert" style={memorySectionStyles.error}>
           {error.kind === 'conflict' ? t('conflict') : error.value}
         </p>
       )}
 
       {tab === 'global' ? (
-        <div style={styles.panel}>
+        <div style={memorySectionStyles.panel}>
           <label htmlFor="dsh-memory-global"><strong>GLOBAL.md</strong></label>
           <textarea
             id="dsh-memory-global"
-            style={styles.editor}
+            style={memorySectionStyles.editor}
             spellCheck={false}
             value={draft}
             onChange={event => { setDraft(event.target.value) }}
           />
-          <div style={styles.actions}>
-            <code style={styles.revision}>{global?.revision ?? '—'}</code>
-            <button type="button" style={styles.primaryButton} disabled={busy || global === undefined} onClick={() => { void save() }}>
+          <div style={memorySectionStyles.actions}>
+            <button type="button" style={memorySectionStyles.primaryButton} disabled={busy || global === undefined} onClick={() => { void save() }}>
               {t('saveGlobal')}
             </button>
           </div>
         </div>
       ) : (
-        <div style={styles.placeholder}>
+        <div style={memorySectionStyles.placeholder}>
           <strong>{tab === 'workspaces' ? t('workspacePlaceholder') : t('sessionPlaceholder')}</strong>
           <p>{t('placeholderBody')}</p>
         </div>
@@ -148,22 +147,22 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  page: { display: 'grid', gap: 16, padding: 24, color: 'inherit' },
-  header: { display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center' },
+export const memorySectionStyles: Record<string, React.CSSProperties> = {
+  page: { display: 'grid', gap: 16, padding: 24, color: 'inherit', boxSizing: 'border-box', width: '100%', maxWidth: '100%', minWidth: 0 },
+  header: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 16, alignItems: 'center', minWidth: 0 },
+  heading: { flex: '1 1 240px', minWidth: 0 },
   title: { margin: 0, fontSize: 24 },
   subtitle: { margin: '4px 0 0', opacity: 0.72 },
   button: { padding: '8px 12px', borderRadius: 8, border: '1px solid currentColor', background: 'transparent', color: 'inherit' },
   primaryButton: { padding: '9px 14px', borderRadius: 8, border: 0, background: '#5b5bd6', color: '#fff', fontWeight: 600 },
-  status: { display: 'flex', flexWrap: 'wrap', gap: '8px 20px', padding: 14, borderRadius: 10, background: 'rgba(127,127,127,0.12)' },
-  path: { flexBasis: '100%', overflowWrap: 'anywhere' },
-  tabs: { display: 'flex', gap: 8, borderBottom: '1px solid rgba(127,127,127,0.3)' },
+  status: { display: 'flex', flexWrap: 'wrap', gap: '8px 20px', padding: 14, borderRadius: 10, background: 'rgba(127,127,127,0.12)', boxSizing: 'border-box', width: '100%', maxWidth: '100%', minWidth: 0 },
+  path: { flexBasis: '100%', minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' },
+  tabs: { display: 'flex', flexWrap: 'wrap', gap: 8, borderBottom: '1px solid rgba(127,127,127,0.3)', maxWidth: '100%', minWidth: 0 },
   tab: { padding: '9px 12px', border: 0, borderBottom: '2px solid transparent', background: 'transparent', color: 'inherit', opacity: 0.7 },
-  activeTab: { borderBottomColor: '#5b5bd6', opacity: 1, fontWeight: 600 },
-  panel: { display: 'grid', gap: 10 },
-  editor: { minHeight: 320, width: '100%', boxSizing: 'border-box', resize: 'vertical', borderRadius: 10, padding: 14, border: '1px solid rgba(127,127,127,0.4)', background: 'rgba(127,127,127,0.06)', color: 'inherit', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.5 },
-  actions: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' },
-  revision: { overflow: 'hidden', textOverflow: 'ellipsis', opacity: 0.65 },
-  error: { margin: 0, padding: 12, borderRadius: 8, background: 'rgba(200,40,40,0.15)', color: '#d44' },
-  placeholder: { padding: 24, border: '1px dashed rgba(127,127,127,0.45)', borderRadius: 10, opacity: 0.75 },
+  activeTab: { borderBottom: '2px solid #5b5bd6', opacity: 1, fontWeight: 600 },
+  panel: { display: 'grid', gap: 10, width: '100%', maxWidth: '100%', minWidth: 0 },
+  editor: { display: 'block', minHeight: 320, width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', resize: 'vertical', borderRadius: 10, padding: 14, border: '1px solid rgba(127,127,127,0.4)', background: 'rgba(127,127,127,0.06)', color: 'inherit', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', lineHeight: 1.5 },
+  actions: { display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 12, alignItems: 'center', minWidth: 0 },
+  error: { margin: 0, padding: 12, borderRadius: 8, background: 'rgba(200,40,40,0.15)', color: '#d44', overflowWrap: 'anywhere' },
+  placeholder: { padding: 24, border: '1px dashed rgba(127,127,127,0.45)', borderRadius: 10, opacity: 0.75, boxSizing: 'border-box', maxWidth: '100%', minWidth: 0 },
 }

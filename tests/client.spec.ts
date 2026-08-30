@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { apply, inject, type BrowserContext } from '../src/client/index.ts'
+import { memorySectionStyles } from '../src/client/MemorySection.tsx'
 import { en, zh } from '../src/client/locales.ts'
 
 describe('Browser locale integration', () => {
@@ -47,5 +48,30 @@ describe('Browser locale integration', () => {
     active = 'zh'
     expect(registration?.label()).toBe('记忆')
     expect(ctx.locale.bind('settings.memory')('bytes', { count: 12 })).toBe('12 字节')
+  })
+})
+
+describe('Memory section responsive layout', () => {
+  it('keeps wide content inside the Settings section and allows controls to wrap', () => {
+    expect(memorySectionStyles.page).toMatchObject({
+      boxSizing: 'border-box',
+      width: '100%',
+      maxWidth: '100%',
+      minWidth: 0,
+    })
+    expect(memorySectionStyles.header).toMatchObject({ flexWrap: 'wrap', minWidth: 0 })
+    expect(memorySectionStyles.status).toMatchObject({ maxWidth: '100%', minWidth: 0 })
+    expect(memorySectionStyles.path).toMatchObject({ overflowWrap: 'anywhere', minWidth: 0 })
+    expect(memorySectionStyles.tabs).toMatchObject({ flexWrap: 'wrap', maxWidth: '100%', minWidth: 0 })
+    expect(memorySectionStyles.editor).toMatchObject({ width: '100%', maxWidth: '100%', minWidth: 0 })
+    expect(memorySectionStyles.actions).toMatchObject({ flexWrap: 'wrap', justifyContent: 'flex-end' })
+  })
+})
+
+describe('Memory section tab selection', () => {
+  it('uses the same border property for active and inactive tabs', () => {
+    expect(memorySectionStyles.tab).toMatchObject({ borderBottom: '2px solid transparent' })
+    expect(memorySectionStyles.activeTab).toMatchObject({ borderBottom: '2px solid #5b5bd6' })
+    expect(memorySectionStyles.activeTab).not.toHaveProperty('borderBottomColor')
   })
 })
