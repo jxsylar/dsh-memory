@@ -9,7 +9,7 @@
   <img src="https://badgen.net/badge/format/DSH%20bundle/8257D0" alt="DSH bundle" />
 </p>
 
-> 当前状态：首个可运行基础里程碑。Global/Workspace Markdown 存储、Prompt 注入、`memory_update`、loopback RPC 和中英文 Global 设置页已经实现；下一项工作是 Workspace 管理，之后是 Session Consolidator。
+> 当前状态：Workspace 管理与只读 Session 资格列表已经完成并通过真实 Web 验证。下一项里程碑是手动 Session Consolidator。
 
 ## 它解决什么问题
 
@@ -33,7 +33,8 @@ $DSH_HOME/memory/
 |---|---|---|
 | Markdown MemoryStore | 已实现 | Global 与 Workspace 读取、revision、CAS 写入和 Workspace 索引重建 |
 | Prompt 注入 | 已实现 | 自动加载 Global 和当前 Workspace `MEMORY.md`，详细文件按需搜索 |
-| Loopback RPC | 部分实现 | 已实现 Status、Global 读取和 revision-checked 替换 |
+| Loopback RPC | 已实现 | Status、Global 读写、Workspace 管理和 Session 候选列表 |
+| Session 资格判定 | 已实现 | 通过 SessionPersistence snapshot 与 live Agent registry 排除不安全候选 |
 | Session Consolidator | 待实现 | 从稳定的持久化 Session 中提取并合并 Workspace 记忆 |
 
 ### Tools
@@ -47,8 +48,8 @@ $DSH_HOME/memory/
 | 页面 | 状态 | 作用 |
 |---|---|---|
 | Global | 已实现 | 跟随 DSH Web 中英文设置，查看、编辑并 CAS 保存 `GLOBAL.md` |
-| Workspaces | 待实现 | 浏览派生索引与详细记忆，执行批量 mutation |
-| Sessions | 待实现 | 选择稳定 Session，手动触发 Consolidator 并查看 receipt |
+| Workspaces | 已实现 | 浏览 Workspace、派生索引与详细记忆，创建、编辑、删除并批量保存 |
+| Sessions | 部分实现 | 浏览持久化 Session、Workspace 归属和禁用原因；整理操作与 receipt 待实现 |
 
 ![Memory Settings structure](docs/preview/memory-settings.svg)
 

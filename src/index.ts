@@ -5,15 +5,23 @@ import { defineTool } from '@deepseek-ai/dsh-tools'
 import {
   MarkdownMemoryStore,
   MemoryConflictError,
+  MemoryValidationError,
   type WorkspaceMemoryType,
 } from './memory-store.ts'
 import type { MemoryToolExecution } from './host-contracts.ts'
+import { SessionCatalog } from './session-catalog.ts'
 import {
   parseEmptyPayload,
   parseGlobalMemoryView,
   parseGlobalReplacePayload,
   parseGlobalReplaceResponse,
   parseMemoryStatus,
+  parseSessionListResponse,
+  parseWorkspaceCommitPayload,
+  parseWorkspaceCommitResponse,
+  parseWorkspaceListResponse,
+  parseWorkspaceReadPayload,
+  parseWorkspaceReadResponse,
   type MemoryRevision,
   type MemoryRpcResult,
 } from './protocol.ts'
@@ -52,6 +60,7 @@ type MemoryUpdateArgs = {
 export function apply(ctx: Context): void {
   const store = new MarkdownMemoryStore(ctx)
   store.initialize()
+  let sessionCatalog: SessionCatalog | undefined
 
   ctx.inject(['systemPrompt'], (promptCtx) => {
     promptCtx.systemPrompt.section({ name: 'dsh-memory:rules', order: 50, text: MEMORY_RULES })
@@ -66,10 +75,20 @@ export function apply(ctx: Context): void {
     toolCtx.tools.register(createMemoryUpdateTool(store))
   })
 
+  ctx.inject(['sessionPersistence', 'agents'], (sessionCtx) => {
+    sessionCtx.effect(() => {
+      const catalog = new SessionCatalog(store, sessionCtx.sessionPersistence, sessionCtx.agents)
+      sessionCatalog = catalog
+      return () => {
+        if (sessionCatalog === catalog) sessionCatalog = undefined
+      }
+    }, 'dsh-memory: Session candidate catalog')
+  })
+
   ctx.inject(['connection'], (webCtx) => {
     webCtx.effect(() => webCtx.connection.rpc.handle(
       '/memory',
-      (endpoint, payload, signal) => handleMemoryRpc(store, endpoint, payload, signal),
+      (endpoint, payload, signal) => handleMemoryRpc(store, () => sessionCatalog, endpoint, payload, signal),
       { authority: 'loopback' },
     ), 'dsh-memory: loopback RPC')
   })
@@ -160,6 +179,7 @@ function createMemoryUpdateTool(store: MarkdownMemoryStore): unknown {
 
 async function handleMemoryRpc(
   store: MarkdownMemoryStore,
+  getSessionCatalog: () => SessionCatalog | undefined,
   endpoint: string,
   payload: unknown,
   signal: AbortSignal,
@@ -185,12 +205,42 @@ async function handleMemoryRpc(
           throw error
         }
       }
+      case 'workspaces/list':
+        parseEmptyPayload(payload)
+        return { ok: true, value: parseWorkspaceListResponse(store.listWorkspaces()) }
+      case 'workspace/read': {
+        const input = parseWorkspaceReadPayload(payload)
+        const workspace = store.readWorkspaceById(input.workspaceId)
+        if (workspace === undefined) return badRequest(`unknown Workspace id: ${input.workspaceId}`)
+        return { ok: true, value: parseWorkspaceReadResponse(workspace) }
+      }
+      case 'workspace/commit': {
+        const input = parseWorkspaceCommitPayload(payload)
+        try {
+          const result = await store.commitWorkspaceById(input)
+          if (result === undefined) return badRequest(`unknown Workspace id: ${input.workspaceId}`)
+          return { ok: true, value: parseWorkspaceCommitResponse({ status: 'committed', revision: result.revision }) }
+        } catch (error: unknown) {
+          if (error instanceof MemoryConflictError) {
+            return { ok: true, value: parseWorkspaceCommitResponse({ status: 'conflict', currentRevision: error.currentRevision }) }
+          }
+          throw error
+        }
+      }
+      case 'sessions/list': {
+        parseEmptyPayload(payload)
+        const catalog = getSessionCatalog()
+        const response = catalog === undefined
+          ? { available: false, sessions: [] }
+          : await catalog.list(signal)
+        return { ok: true, value: parseSessionListResponse(response) }
+      }
       default:
         return badRequest(`unknown memory endpoint: ${endpoint}`)
     }
   } catch (error: unknown) {
     if (signal.aborted) return cancelled(signal)
-    if (error instanceof TypeError) return badRequest(error.message)
+    if (error instanceof TypeError || error instanceof MemoryValidationError) return badRequest(error.message)
     return {
       ok: false,
       error: { code: 'internal', message: error instanceof Error ? error.message : String(error), details: {} },
@@ -229,4 +279,20 @@ export type {
   WorkspaceMemoryView,
   WorkspaceScope,
 } from './memory-store.ts'
-export type { GlobalMemoryView, GlobalReplaceResponse, MemoryRevision, MemoryStatus } from './protocol.ts'
+export type {
+  GlobalMemoryView,
+  GlobalReplaceResponse,
+  MemoryRevision,
+  MemoryStatus,
+  WorkspaceId,
+  WorkspaceCommitChange,
+  WorkspaceCommitPayload,
+  WorkspaceCommitResponse,
+  WorkspaceListResponse,
+  WorkspaceReadResponse,
+  WorkspaceRecordView,
+  WorkspaceSummary,
+  SessionIneligibleReason,
+  SessionListResponse,
+  SessionSummary,
+} from './protocol.ts'

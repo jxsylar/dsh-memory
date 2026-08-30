@@ -13,34 +13,38 @@
 - `memory_update`；
 - loopback RPC 的 `status`、`global/read`、`global/replace`；
 - Settings 中的 Status 与 Global 编辑；
+- Host Workspace catalog、`workspaces/list`、`workspace/read` 与只读 Workspaces UI；
+- `workspace/commit`、Browser 批量编辑和保留草稿的 CAS 冲突体验；
+- SessionPersistence 驱动的 `sessions/list`、live/stability/Workspace 资格判断和只读 Sessions UI；
 - Host、Browser、协议和 Store 的基础测试；
 - 本地 Bundle 安装、Web boot、Client bundle 与代表性 RPC 冒烟。
 
 ## M1：Workspace 管理
 
-这是下一项功能。它先把已有 Store 能力完整暴露给用户，也为 Session 整理提供可观察、可修正的目标数据。
+状态：实现完成并通过真实 Web 编辑/冲突验证，发布前 GIF 待补。它把已有 Store 能力完整暴露给用户，也为 Session 整理提供可观察、可修正的目标数据。
 
 实现：
 
-1. Host Workspace catalog：从 memory root 枚举 Workspace，并返回 opaque `workspaceId`、显示名、revision 和统计；
-2. `workspaces/list`：不暴露绝对路径或内部 key；
-3. `workspace/read`：返回派生索引和结构化记录；
-4. `workspace/commit`：一次 CAS 批量执行 put/delete，并只发布一个新 generation；
-5. Workspaces UI：选择、刷新、查看、创建、编辑、删除；
-6. 冲突体验：旧 revision 保存时展示冲突并保留用户未提交内容；
-7. Store/RPC/UI 测试与真实 Web GIF。
+1. [完成] Host Workspace catalog：从 memory root 枚举 Workspace，并返回 opaque `workspaceId`、显示名、revision 和统计；
+2. [完成] `workspaces/list`：不暴露绝对路径或内部 key；
+3. [完成] `workspace/read`：返回派生索引和结构化记录；
+4. [完成] `workspace/commit`：一次 CAS 批量执行 put/delete，并只发布一个新 generation；
+5. [完成] Workspaces UI：选择、刷新、查看、创建、编辑、删除；
+6. [完成] 冲突体验：旧 revision 保存时展示冲突并保留用户未提交内容；
+7. [部分完成] Store/RPC/UI 单元测试和真实 Web 编辑/冲突验证已完成；发布前 GIF 待补。
 
 完成标准：Browser 不直接写文件；任意非法 Workspace id、记录或 response 都被拒绝；一次批量提交不会产生部分写入；刷新后 UI 与 Markdown 一致。
 
 ## M2：Session 浏览与资格判定
 
-先实现纯读取数据通路，不调用模型：
+状态：实现完成并通过真实 Web 列表验证。该切片只读取轻量持久化元数据，不调用模型：
 
-1. 注入 `sessionPersistence` 与 live Session registry；
-2. 通过后端无关 API 列出 snapshot；
-3. 排除 live、无 cwd、不属于可解析 Workspace 或 revision 不稳定的 Session；
-4. `sessions/list` 返回可整理状态、原因和最新 receipt 摘要；
-5. Sessions UI 展示列表与禁用原因。
+1. [完成] 可选注入 `sessionPersistence` 与 live Agent registry；
+2. [完成] 通过后端无关 `listSnapshots()` 连续观察两次 snapshot；
+3. [完成] 排除 live、无 cwd、不属于可解析 Workspace 或 revision 不稳定的 Session；
+4. [完成] `sessions/list` 返回可整理状态、原因，以及 M3 前固定为 `null` 的最新 receipt；
+5. [完成] Sessions UI 展示列表、Workspace 归属与禁用原因；
+6. [完成] 单元、组合测试与真实 Web 列表验证已完成。
 
 完成标准：不扫描 `.dsh` JSONL；重启后结果仍来自持久化 API；当前正在运行的 Session 永远不可整理。
 

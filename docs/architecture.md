@@ -33,7 +33,8 @@ Agent step                    Web Browser
 | `src/memory-store.ts` | Markdown Provider；格式校验、revision、CAS、scope lock、原子发布和索引重建 |
 | `src/protocol.ts` | Host/Browser 共用的 wire 类型和双侧运行时解析 |
 | `src/client/index.ts` | Browser Cordis entry；注册中英文字典与 `settings.section`，并封装 `/memory` Client |
-| `src/client/MemorySection.tsx` | 响应式 Status、Global 编辑器及后续 Workspaces/Sessions 页面席位；内部 revision 不直接展示 |
+| `src/session-catalog.ts` | 基于 SessionPersistence snapshot 与 live Agent registry 的只读资格投影 |
+| `src/client/MemorySection.tsx` | 响应式 Status、Global 编辑器、Workspace 批量编辑及 Sessions 候选列表；内部 revision 不直接展示 |
 | `src/client/locales.ts` | Memory 设置页完整的 `zh` / `en` 文案字典 |
 | `cordis.patch.yml` | Bundle patch；向 Host 组合插入唯一的 `dsh-memory` row |
 
@@ -100,14 +101,19 @@ Memory Settings
   -> component renders or reports error
 ```
 
-当前 endpoints 是 `status`、`global/read` 和 `global/replace`。后续 endpoint 见 [roadmap.md](roadmap.md)；新增 endpoint 时必须同时增加 Host 与 Browser 的非法 wire-value 测试。
+当前 endpoints 是 `status`、`global/read`、`global/replace`、`workspaces/list`、`workspace/read`、`workspace/commit` 和 `sessions/list`。Host 从合法 Workspace 目录派生稳定 opaque id，Browser 只用该 id 选择详情或提交变更；所有 Workspace wire value 均不暴露 cwd、内部 key 或绝对路径。
+
+Workspace 编辑先保留在 Browser 草稿中。保存时 Browser 根据已读取 generation 构造确定性的 delete-then-put batch，并连同 expected revision 一次提交；Host 双重解析后重新通过 opaque id 解析目录，再调用 `MemoryStore` 做 CAS 和完整 generation 发布。冲突只返回当前 revision，不覆盖或清除 Browser 草稿。
+
+Session 页面只走读取链路：Host 连续调用两次 `SessionPersistence.listSnapshots()`，以 source-qualified revision 判断观察期间是否稳定，再通过 live Agent registry 否决正在运行的 Session，并使用 `MemoryStore` 的 cwd 规则验证 Workspace 归属。它不扫描 JSONL、不读取完整事件，也不调用模型。若相关 Host 服务不存在，`sessions/list` 返回显式 unavailable 状态，Headless 组合仍可加载。
+
+后续 endpoint 见 [roadmap.md](roadmap.md)；新增 endpoint 时必须同时增加 Host 与 Browser 的非法 wire-value 测试。
 
 ## 当前缺口
 
-- Workspace Registry 驱动的 Browser 列表与管理；
-- SessionPersistence Consumer 和手动 Consolidator Agent；
+- 手动 Consolidator Agent；
 - review receipt；
-- UI 的 Workspaces/Sessions 实际数据流；
+- Sessions 的整理操作；
 - 自动整理、访问记录与淘汰。
 
 实现顺序和验收条件见 [roadmap.md](roadmap.md)。这些能力必须复用现有 `MemoryStore`，不能从 UI、工具或 worker 绕过校验与 revision。

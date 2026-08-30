@@ -39,11 +39,33 @@ export interface MemoryHostConnection {
   }
 }
 
+/** Lightweight persistence metadata used to discover consolidation candidates. */
+export interface MemorySessionSnapshot {
+  readonly header: {
+    readonly id: string
+    readonly createdAt: number
+    readonly cwd?: string
+  }
+  readonly revision: string
+}
+
+/** Backend-neutral SessionPersistence face used by the candidate catalog. */
+export interface MemorySessionPersistence {
+  listSnapshots(signal?: AbortSignal): Promise<MemorySessionSnapshot[]>
+}
+
+/** Live Agent lookup used to exclude sessions that are still running. */
+export interface MemoryAgentRegistry {
+  get(id: string): unknown | undefined
+}
+
 declare module '@deepseek-ai/cordis' {
   interface Context {
     memoryStore: import('./memory-store.ts').MarkdownMemoryStore
     systemPrompt: MemorySystemPrompt
     tools: MemoryToolRegistry
     connection: MemoryHostConnection
+    sessionPersistence: MemorySessionPersistence
+    agents: MemoryAgentRegistry
   }
 }

@@ -5,6 +5,10 @@ import {
   parseGlobalMemoryView,
   parseGlobalReplaceResponse,
   parseMemoryStatus,
+  parseSessionListResponse,
+  parseWorkspaceCommitResponse,
+  parseWorkspaceListResponse,
+  parseWorkspaceReadResponse,
   type MemoryRpcResult,
 } from '../protocol.ts'
 import { en, zh, type MemoryTranslate } from './locales.ts'
@@ -76,5 +80,9 @@ function createMemoryApi(connection: BrowserConnection): MemoryApi {
     status: async signal => parseMemoryStatus(await call('status', {}, signal)),
     readGlobal: async signal => parseGlobalMemoryView(await call('global/read', {}, signal)),
     replaceGlobal: async (input, signal) => parseGlobalReplaceResponse(await call('global/replace', input, signal)),
+    listWorkspaces: async signal => parseWorkspaceListResponse(await call('workspaces/list', {}, signal)),
+    readWorkspace: async (workspaceId, signal) => parseWorkspaceReadResponse(await call('workspace/read', { workspaceId }, signal)),
+    commitWorkspace: async (input, signal) => parseWorkspaceCommitResponse(await call('workspace/commit', input, signal)),
+    listSessions: async signal => parseSessionListResponse(await call('sessions/list', {}, signal)),
   }
 }

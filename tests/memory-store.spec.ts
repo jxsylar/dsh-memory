@@ -68,6 +68,108 @@ describe('MarkdownMemoryStore', () => {
     expect(readFileSync(join(scope.directory, 'review-before-publish.md'), 'utf8')).toContain('type: feedback')
   })
 
+  it('discovers Workspaces through opaque ids without exposing Host paths', async () => {
+    const memory = store()
+    memory.initialize()
+    const scopes = [memory.scopeForCwd('/work/zeta-project'), memory.scopeForCwd('/work/alpha-project')]
+    for (const [index, scope] of scopes.entries()) {
+      const empty = await memory.readWorkspace(scope)
+      await memory.commitWorkspace({
+        scope,
+        expectedRevision: empty.revision,
+        changes: [{ action: 'put', record: {
+          name: `project-note-${index}`,
+          description: `Project note ${index}.`,
+          type: 'project',
+          content: `Workspace ${index}.\n`,
+        } }],
+      })
+    }
+
+    const catalog = memory.listWorkspaces()
+    expect(catalog.workspaces.map(entry => entry.displayName)).toEqual(['alpha-project', 'zeta-project'])
+    expect(catalog.workspaces.every(entry => /^workspace:[a-f0-9]{64}$/u.test(entry.workspaceId))).toBe(true)
+    expect(JSON.stringify(catalog)).not.toContain(scopes[0]!.key)
+    expect(JSON.stringify(catalog)).not.toContain(scopes[0]!.directory)
+
+    const selected = catalog.workspaces[0]!
+    const view = memory.readWorkspaceById(selected.workspaceId)
+    expect(view).toMatchObject({
+      workspaceId: selected.workspaceId,
+      displayName: 'alpha-project',
+      recordCount: 1,
+      records: [{ name: 'project-note-1', type: 'project' }],
+    })
+    expect(JSON.stringify(view)).not.toContain(scopes[1]!.directory)
+    expect(memory.readWorkspaceById(`workspace:${'f'.repeat(64)}` as typeof selected.workspaceId)).toBeUndefined()
+  })
+
+  it('commits one canonical Workspace batch through an opaque id', async () => {
+    const memory = store()
+    memory.initialize()
+    const scope = memory.scopeForCwd('/work/browser-edit')
+    const empty = await memory.readWorkspace(scope)
+    await memory.commitWorkspace({
+      scope,
+      expectedRevision: empty.revision,
+      changes: [{ action: 'put', record: {
+        name: 'old-record',
+        description: 'Will be replaced.',
+        type: 'project',
+        content: 'Old.\n',
+      } }],
+    })
+    const summary = memory.listWorkspaces().workspaces[0]!
+    const before = memory.readWorkspaceById(summary.workspaceId)!
+    const committed = await memory.commitWorkspaceById({
+      workspaceId: summary.workspaceId,
+      expectedRevision: before.revision,
+      changes: [
+        { action: 'delete', name: 'old-record' },
+        { action: 'put', record: {
+          name: 'new-record',
+          description: 'Created in the same generation.',
+          type: 'feedback',
+          content: 'New.\n',
+        } },
+      ],
+    })
+    expect(committed?.revision).not.toBe(before.revision)
+    expect(memory.readWorkspaceById(summary.workspaceId)?.records).toEqual([{
+      name: 'new-record',
+      description: 'Created in the same generation.',
+      type: 'feedback',
+      content: 'New.\n',
+    }])
+
+    await expect(memory.commitWorkspaceById({
+      workspaceId: summary.workspaceId,
+      expectedRevision: before.revision,
+      changes: [{ action: 'put', record: {
+        name: 'stale-record',
+        description: 'Must conflict.',
+        type: 'project',
+        content: 'Stale.\n',
+      } }],
+    })).rejects.toBeInstanceOf(MemoryConflictError)
+
+    const stable = memory.readWorkspaceById(summary.workspaceId)!
+    await expect(memory.commitWorkspaceById({
+      workspaceId: summary.workspaceId,
+      expectedRevision: stable.revision,
+      changes: [
+        { action: 'put', record: {
+          name: 'out-of-order',
+          description: 'Must not publish.',
+          type: 'project',
+          content: 'Invalid batch.\n',
+        } },
+        { action: 'delete', name: 'new-record' },
+      ],
+    })).rejects.toBeInstanceOf(MemoryValidationError)
+    expect(memory.readWorkspaceById(summary.workspaceId)?.revision).toBe(stable.revision)
+  })
+
   it('deletes a record as one revision-checked Workspace generation', async () => {
     const memory = store()
     memory.initialize()
