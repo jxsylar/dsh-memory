@@ -23,7 +23,7 @@ Read the relevant record under `docs/decisions/implemented/` before changing an 
 - Workspace recall uses progressive disclosure: inject `MEMORY.md`, then let the Agent open only relevant detailed files with existing file tools.
 - Do not add a model-facing `memory_recall` tool. Reconsider this only if ordinary file search proves insufficient and evidence is recorded.
 - Online writes and future consolidation must use `MemoryStore`; Consumers must not write `$DSH_HOME/memory` directly.
-- The model may propose memory changes. Deterministic Host code owns scope resolution, validation, revision checks, and commits. Future Session consolidation must redact evidence before commit.
+- The model may propose memory changes. Deterministic Host code owns scope resolution, validation, revision checks, and commits. Session consolidation must minimize and redact model-facing evidence before commit.
 - Model-visible memory must be reconstructable from the DSH Session log.
 - v0.1 does not expose or search other Workspaces from an Agent turn.
 
@@ -95,4 +95,4 @@ Report only checks actually run.
 
 ## Current priority
 
-Implement the Workspace management slice before Session consolidation. It should add Host-side Workspace discovery/read/commit RPC, connect the existing Workspaces UI, and reuse `MemoryStore` CAS and batch commit semantics. The exact acceptance criteria live in [docs/roadmap.md](docs/roadmap.md).
+Finish M3 release evidence before expanding behavior: add the real assembled worker replay test and the release UI GIF. Manual Session consolidation, model selection, diagnostics, receipts, recovery, and Workspace management are implemented and have passed real Web use. M4 evaluation and any automatic scheduling remain ordered in [docs/roadmap.md](docs/roadmap.md).

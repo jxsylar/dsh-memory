@@ -9,7 +9,7 @@
   <img src="https://badgen.net/badge/format/DSH%20bundle/8257D0" alt="DSH bundle" />
 </p>
 
-> 当前状态：Workspace 管理与只读 Session 资格列表已经完成并通过真实 Web 验证。下一项里程碑是手动 Session Consolidator。
+> 当前状态：Workspace 管理与手动 Session Consolidator 已通过真实 Web 验证；发布前仍需补自动组装回放测试和界面 GIF。
 
 ## 它解决什么问题
 
@@ -20,6 +20,9 @@
 ```text
 $DSH_HOME/memory/
 ├── GLOBAL.md
+├── settings.yml
+├── debug/<review-id>/attempt-<n>.jsonl
+├── reviews/<review-id>.md
 └── workspaces/<workspace-key>/
     ├── MEMORY.md
     └── <memory-name>.md
@@ -33,9 +36,9 @@ $DSH_HOME/memory/
 |---|---|---|
 | Markdown MemoryStore | 已实现 | Global 与 Workspace 读取、revision、CAS 写入和 Workspace 索引重建 |
 | Prompt 注入 | 已实现 | 自动加载 Global 和当前 Workspace `MEMORY.md`，详细文件按需搜索 |
-| Loopback RPC | 已实现 | Status、Global 读写、Workspace 管理和 Session 候选列表 |
-| Session 资格判定 | 已实现 | 通过 SessionPersistence snapshot 与 live Agent registry 排除不安全候选 |
-| Session Consolidator | 待实现 | 从稳定的持久化 Session 中提取并合并 Workspace 记忆 |
+| Loopback RPC | 已实现 | Status、Global 读写、Workspace 管理、Session 候选与手动整理、整理模型选择 |
+| Session 资格判定 | 已实现 | 通过 SessionPersistence snapshot 与 live Agent registry 排除不安全候选，并从 DSH 投影读取标题 |
+| Session Consolidator | 已实现 | 受限 worker、turn 级证据、严格 proposal、receipt、幂等提交、恢复、debug 与模型选择；真实成功和失败链路均已验证 |
 
 ### Tools
 
@@ -49,7 +52,8 @@ $DSH_HOME/memory/
 |---|---|---|
 | Global | 已实现 | 跟随 DSH Web 中英文设置，查看、编辑并 CAS 保存 `GLOBAL.md` |
 | Workspaces | 已实现 | 浏览 Workspace、派生索引与详细记忆，创建、编辑、删除并批量保存 |
-| Sessions | 部分实现 | 浏览持久化 Session、Workspace 归属和禁用原因；整理操作与 receipt 待实现 |
+| Sessions | 已实现 | 先按 Workspace 选择，再按标题浏览 Session、资格与 receipt；真实整理成功路径已验证 |
+| Model | 已实现 | 读取 DSH 已激活文本模型并选择整理 route；真实 worker 已使用所选 route，API key 仍由 DSH 管理 |
 
 ![Memory Settings structure](docs/preview/memory-settings.svg)
 
@@ -92,6 +96,7 @@ dsh plugin --profile web add "github:vlln/plugin-registry#path:/packages/plugin/
 - [贡献指南](AGENTS.md)：进入仓库后的开发规则、不变量和阅读顺序；
 - [架构](docs/architecture.md)：已经实现的组件与 Host/Client 数据流；
 - [设计](docs/design.md)：稳定产品规则和第一版边界；
+- [Session 整理设计](docs/session-consolidation.md)：M3 完整流程、状态机、数据契约与实现边界；
 - [路线图](docs/roadmap.md)：按依赖排序的后续功能；
 - [开发](docs/development.md)：命令、验证矩阵与发布纪律；
 - [首个架构决策](docs/decisions/implemented/architecture/2026-08-28-host-client-foundation.md)：为什么第一条实现竖切从这些组件开始。

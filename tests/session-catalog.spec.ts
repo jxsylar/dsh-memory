@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { MemorySessionSnapshot } from '../src/host-contracts.ts'
 import { MarkdownMemoryStore } from '../src/memory-store.ts'
 import { SessionCatalog } from '../src/session-catalog.ts'
+import type { ConsolidationReceiptStore } from '../src/consolidation-receipt.ts'
 
 const roots: string[] = []
 
@@ -29,6 +30,7 @@ function snapshot(id: string, revision: string, createdAt: number, cwd?: string)
 
 describe('Session candidate catalog', () => {
   it('uses two backend-neutral snapshot reads and excludes live, cwd-less, and unstable Sessions', async () => {
+    const memory = store()
     const first = [
       snapshot('eligible', 'source:a', 50, '/work/project-alpha'),
       snapshot('live', 'source:b', 40, '/work/project-beta'),
@@ -44,7 +46,7 @@ describe('Session candidate catalog', () => {
       snapshot('relative', 'source:e', 10, 'relative/project'),
     ]
     let calls = 0
-    const catalog = new SessionCatalog(store(), {
+    const catalog = new SessionCatalog(memory, {
       async listSnapshots() {
         calls += 1
         return calls === 1 ? first : second
@@ -56,14 +58,81 @@ describe('Session candidate catalog', () => {
     await expect(catalog.list()).resolves.toEqual({
       available: true,
       sessions: [
-        { sessionId: 'eligible', createdAt: 50, workspaceName: 'project-alpha', eligible: true, reason: null, latestReceipt: null },
-        { sessionId: 'live', createdAt: 40, workspaceName: 'project-beta', eligible: false, reason: 'live', latestReceipt: null },
-        { sessionId: 'missing-cwd', createdAt: 30, workspaceName: null, eligible: false, reason: 'missing-cwd', latestReceipt: null },
-        { sessionId: 'changed', createdAt: 20, workspaceName: 'project-delta', eligible: false, reason: 'unstable', latestReceipt: null },
-        { sessionId: 'relative', createdAt: 10, workspaceName: null, eligible: false, reason: 'workspace-unavailable', latestReceipt: null },
+        { sessionId: 'eligible', title: null, createdAt: 50, workspaceId: memory.workspaceReferenceForCwd('/work/project-alpha').workspaceId, workspaceName: 'project-alpha', eligible: true, reason: null, latestReceipt: null },
+        { sessionId: 'live', title: null, createdAt: 40, workspaceId: memory.workspaceReferenceForCwd('/work/project-beta').workspaceId, workspaceName: 'project-beta', eligible: false, reason: 'live', latestReceipt: null },
+        { sessionId: 'missing-cwd', title: null, createdAt: 30, workspaceId: null, workspaceName: null, eligible: false, reason: 'missing-cwd', latestReceipt: null },
+        { sessionId: 'changed', title: null, createdAt: 20, workspaceId: memory.workspaceReferenceForCwd('/work/project-delta').workspaceId, workspaceName: 'project-delta', eligible: false, reason: 'unstable', latestReceipt: null },
+        { sessionId: 'relative', title: null, createdAt: 10, workspaceId: null, workspaceName: null, eligible: false, reason: 'workspace-unavailable', latestReceipt: null },
       ],
     })
     expect(calls).toBe(2)
+  })
+
+  it('omits internal consolidation worker Sessions from future source candidates', async () => {
+    const source = snapshot('source', 'source:a', 2, '/work/project-alpha')
+    const worker = snapshot(
+      `session-memory-review-${'a'.repeat(64)}-attempt-1`,
+      'source:b',
+      1,
+      '/work/project-alpha',
+    )
+    const catalog = new SessionCatalog(store(), {
+      async listSnapshots() { return [source, worker] },
+    }, { get() { return undefined } })
+
+    await expect(catalog.list()).resolves.toMatchObject({
+      sessions: [{ sessionId: 'source' }],
+    })
+  })
+
+  it('reads live and cold titles from projection cuts without loading Session logs', async () => {
+    const memory = store()
+    const live = snapshot('live', 'source:a', 2, '/work/project-alpha')
+    const cold = snapshot('cold', 'source:b', 1, '/work/project-alpha')
+    const liveSession = { id: 'live' }
+    const catalog = new SessionCatalog(memory, {
+      async listSnapshots() { return [live, cold] },
+    }, {
+      get(id) { return id === 'live' ? { session: liveSession } : undefined },
+    }, undefined, () => ({
+      live: {
+        snapshot(session) {
+          expect(session).toBe(liveSession)
+          return { values: { title: 'Live memory architecture' } }
+        },
+      },
+      cached: {
+        cachedSnapshot(header) {
+          expect(header).toBe(cold.header)
+          return { values: { title: 'Cold memory architecture' } }
+        },
+      },
+    }))
+
+    await expect(catalog.list()).resolves.toMatchObject({ sessions: [
+      { sessionId: 'live', title: 'Live memory architecture', reason: 'live' },
+      { sessionId: 'cold', title: 'Cold memory architecture' },
+    ] })
+  })
+
+  it('fails soft when a cached title projection is absent or invalid', async () => {
+    const invalid = snapshot('invalid', 'source:a', 2, '/work/project-alpha')
+    const failed = snapshot('failed', 'source:b', 1, '/work/project-alpha')
+    const catalog = new SessionCatalog(store(), {
+      async listSnapshots() { return [invalid, failed] },
+    }, { get() { return undefined } }, undefined, () => ({
+      cached: {
+        cachedSnapshot(header) {
+          if (header.id === 'failed') throw new Error('cache unavailable')
+          return { values: { title: 'bad\ntitle' } }
+        },
+      },
+    }))
+
+    await expect(catalog.list()).resolves.toMatchObject({ sessions: [
+      { sessionId: 'invalid', title: null },
+      { sessionId: 'failed', title: null },
+    ] })
   })
 
   it('marks a missing or duplicate second observation unstable', async () => {
@@ -83,5 +152,34 @@ describe('Session candidate catalog', () => {
       ['missing', 'unstable'],
       ['duplicate', 'unstable'],
     ])
+  })
+
+  it('projects a receipt as current or older without exposing Host-only fields', async () => {
+    const source = snapshot('eligible', 'source:new', 50, '/work/project-alpha')
+    const receipts = {
+      latestBySourceSessions() {
+        return new Map([['eligible', {
+          reviewId: `review-${'a'.repeat(64)}`,
+          state: 'committed',
+          sourceRevision: 'source:old',
+          attempts: [{ attempt: 2 }],
+          completedAt: '2026-08-31T00:00:00.000Z',
+        }]])
+      },
+    } as unknown as ConsolidationReceiptStore
+    const catalog = new SessionCatalog(store(), {
+      async listSnapshots() { return [source] },
+    }, { get() { return undefined } }, receipts)
+
+    await expect(catalog.list()).resolves.toMatchObject({
+      sessions: [{
+        latestReceipt: {
+          state: 'committed',
+          attempt: 2,
+          current: false,
+          completedAt: '2026-08-31T00:00:00.000Z',
+        },
+      }],
+    })
   })
 })

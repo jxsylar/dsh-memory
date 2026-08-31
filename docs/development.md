@@ -50,6 +50,19 @@ dsh web --no-open
 6. Global 保存后 revision 变化，旧页面保存得到 conflict；
 7. Headless 不包含 `connection` 时仍能加载 Prompt 和 Tool。
 
+### 手工验证 Session 整理与模型设置
+
+1. 在 DSH Models 页面配置并激活至少一个文本模型，然后重启 Web；
+2. 打开 Settings → Memory → Model，确认列表与 DSH Models 页面一致，保存一个 route 后刷新仍保持选择；
+3. 在 Sessions 左栏切换两个 Workspace，确认右侧只显示所选 Workspace 的 Session；同名 Workspace 不合并，无归属 Session 仍可从“未归属”查看；
+4. 确认已有 DSH 标题作为主标题显示，无标题 Session 显示本地化占位，Session id 仍作为次要信息；
+5. 选择“可以整理”的 Session 并触发整理；
+6. 若失败，复制页面显示的 `$DSH_HOME/memory/debug/<review-id>/attempt-<n>.jsonl` 路径，按 `stage` 从后往前查看错误的 `name`、`message`、`code`、`cause` 和 `stack`；
+7. 对长 Session，确认 debug 的 `sourceEventBytes`、`evidenceBytes` 和 `workerInputBytes` 明显反映筛选效果；超过 `maxInputBytes` 时显示 `evidence-too-large`，且不会创建 worker Agent；
+8. 确认 `provider-failed` 对应 `agent-error`，而装配、flush 或 dispose 问题显示为 `internal-error`；
+9. 确认 debug 文件没有 source event、memory/proposal 正文或 API key。
+10. 打开新 worker Session，确认 DSH 原生历史可以读取；返回 Memory Sessions 页面后确认该 worker 不出现在可整理候选中。
+
 Host entry 受 Node ESM module cache 影响，修改后必须重启 Web。Client bundle 变更需要重建、重新安装并刷新页面。
 
 ## 发布

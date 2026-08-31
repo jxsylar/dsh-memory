@@ -1,4 +1,4 @@
-/** Settings section for Memory status and the first Global management slice. */
+/** Settings section for Global, Workspace, Session, and consolidation-model management. */
 
 import { useCallback, useEffect, useState } from 'react'
 import type {
@@ -7,7 +7,12 @@ import type {
   MemoryRevision,
   MemoryStatus,
   SessionIneligibleReason,
+  SessionConsolidateResponse,
   SessionListResponse,
+  SessionReceiptState,
+  SessionSummary,
+  ConsolidationModelCatalogResponse,
+  ConsolidationModelSelectResponse,
   WorkspaceId,
   WorkspaceCommitChange,
   WorkspaceCommitPayload,
@@ -27,6 +32,13 @@ export interface MemoryApi {
   readWorkspace(workspaceId: WorkspaceId, signal?: AbortSignal): Promise<WorkspaceReadResponse>
   commitWorkspace(input: WorkspaceCommitPayload, signal?: AbortSignal): Promise<WorkspaceCommitResponse>
   listSessions(signal?: AbortSignal): Promise<SessionListResponse>
+  consolidateSession(sessionId: string, signal?: AbortSignal): Promise<SessionConsolidateResponse>
+  readModels(signal?: AbortSignal): Promise<ConsolidationModelCatalogResponse>
+  selectModel(input: {
+    expectedRevision: MemoryRevision
+    provider: string
+    model: string
+  }, signal?: AbortSignal): Promise<ConsolidationModelSelectResponse>
 }
 
 /** Settings slot injection assembled by the Browser Cordis entry. */
@@ -36,11 +48,12 @@ export interface MemorySectionInjected {
   readonly t: MemoryTranslate
 }
 
-type Tab = 'global' | 'workspaces' | 'sessions'
+type Tab = 'global' | 'workspaces' | 'sessions' | 'models'
 type MemoryButtonVariant = 'default' | 'primary' | 'danger' | 'tab' | 'workspace'
 type ErrorState =
   | { readonly kind: 'global-conflict' }
   | { readonly kind: 'workspace-conflict' }
+  | { readonly kind: 'model-conflict' }
   | { readonly kind: 'message'; readonly value: string }
 
 export interface WorkspaceDraftRecord extends WorkspaceRecordView {
@@ -49,6 +62,15 @@ export interface WorkspaceDraftRecord extends WorkspaceRecordView {
 }
 
 export type WorkspaceDraftIssue = 'name' | 'duplicate-name' | 'description' | 'content'
+
+export interface SessionWorkspaceGroup {
+  readonly key: string
+  readonly workspaceId: WorkspaceId | null
+  readonly workspaceName: string | null
+  readonly sessions: SessionSummary[]
+}
+
+const UNASSIGNED_SESSION_WORKSPACE = 'unassigned'
 
 let workspaceDraftSequence = 0
 
@@ -141,6 +163,31 @@ export function workspaceDraftIssue(drafts: readonly WorkspaceDraftRecord[]): Wo
   }
 }
 
+/** Group newest-first Session summaries by opaque Workspace identity, preserving an unassigned bucket. */
+export function groupSessionsByWorkspace(sessions: readonly SessionSummary[]): SessionWorkspaceGroup[] {
+  const groups = new Map<string, SessionWorkspaceGroup>()
+  for (const session of sessions) {
+    const key = session.workspaceId ?? UNASSIGNED_SESSION_WORKSPACE
+    const current = groups.get(key)
+    if (current === undefined) {
+      groups.set(key, {
+        key,
+        workspaceId: session.workspaceId,
+        workspaceName: session.workspaceName,
+        sessions: [session],
+      })
+    } else {
+      current.sessions.push(session)
+    }
+  }
+  return [...groups.values()].sort((left, right) => {
+    if (left.workspaceId === null) return right.workspaceId === null ? 0 : 1
+    if (right.workspaceId === null) return -1
+    const byName = left.workspaceName!.localeCompare(right.workspaceName!, 'en')
+    return byName === 0 ? left.workspaceId.localeCompare(right.workspaceId, 'en') : byName
+  })
+}
+
 /** Render status plus Global, Workspaces, and Sessions tabs. */
 export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   const { t } = props
@@ -156,10 +203,21 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   const [workspaceDrafts, setWorkspaceDrafts] = useState<WorkspaceDraftRecord[]>([])
   const [sessionBusy, setSessionBusy] = useState(false)
   const [sessions, setSessions] = useState<SessionListResponse>()
+  const [selectedSessionWorkspaceKey, setSelectedSessionWorkspaceKey] = useState<string>()
+  const [consolidatingSessionId, setConsolidatingSessionId] = useState<string>()
+  const [consolidationResult, setConsolidationResult] = useState<{ sessionId: string; result: SessionConsolidateResponse }>()
+  const [modelBusy, setModelBusy] = useState(false)
+  const [modelCatalog, setModelCatalog] = useState<ConsolidationModelCatalogResponse>()
+  const [modelProvider, setModelProvider] = useState('')
+  const [modelName, setModelName] = useState('')
   const [error, setError] = useState<ErrorState>()
   const workspaceChanges = workspace === undefined ? [] : buildWorkspaceChanges(workspace.records, workspaceDrafts)
   const workspaceDirty = workspaceChanges.length > 0
   const draftIssue = workspaceDraftIssue(workspaceDrafts)
+  const sessionWorkspaceGroups = groupSessionsByWorkspace(sessions?.sessions ?? [])
+  const selectedSessionWorkspace = sessionWorkspaceGroups.find(group => group.key === selectedSessionWorkspaceKey)
+    ?? sessionWorkspaceGroups[0]
+  const selectedModelProvider = modelCatalog?.providers.find(provider => provider.id === modelProvider)
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!props.loopback) return
@@ -251,11 +309,68 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
     setSessionBusy(true)
     setError(undefined)
     try {
-      setSessions(await props.api.listSessions(signal))
+      const next = await props.api.listSessions(signal)
+      const groups = groupSessionsByWorkspace(next.sessions)
+      setSessions(next)
+      setSelectedSessionWorkspaceKey(current => groups.some(group => group.key === current)
+        ? current
+        : groups[0]?.key)
     } catch (cause: unknown) {
       if (!signal?.aborted) setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       if (!signal?.aborted) setSessionBusy(false)
+    }
+  }
+
+  const consolidateSession = async (sessionId: string): Promise<void> => {
+    setConsolidatingSessionId(sessionId)
+    setConsolidationResult(undefined)
+    setError(undefined)
+    try {
+      const result = await props.api.consolidateSession(sessionId)
+      setConsolidationResult({ sessionId, result })
+      await refreshSessions()
+    } catch (cause: unknown) {
+      setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      setConsolidatingSessionId(undefined)
+    }
+  }
+
+  const refreshModels = async (signal?: AbortSignal): Promise<void> => {
+    setModelBusy(true)
+    setError(undefined)
+    try {
+      const catalog = await props.api.readModels(signal)
+      setModelCatalog(catalog)
+      setModelProvider(catalog.selection.provider)
+      setModelName(catalog.selection.model)
+    } catch (cause: unknown) {
+      if (!signal?.aborted) setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      if (!signal?.aborted) setModelBusy(false)
+    }
+  }
+
+  const saveModel = async (): Promise<void> => {
+    if (modelCatalog === undefined || modelProvider === '' || modelName === '') return
+    setModelBusy(true)
+    setError(undefined)
+    try {
+      const result = await props.api.selectModel({
+        expectedRevision: modelCatalog.revision,
+        provider: modelProvider,
+        model: modelName,
+      })
+      if (result.status === 'conflict') {
+        setError({ kind: 'model-conflict' })
+        return
+      }
+      await refreshModels()
+    } catch (cause: unknown) {
+      setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
+    } finally {
+      setModelBusy(false)
     }
   }
 
@@ -264,12 +379,14 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
     setError(undefined)
     if (next === 'workspaces' && tab !== 'workspaces' && workspaces.length === 0) void refreshWorkspaces()
     if (next === 'sessions' && tab !== 'sessions' && sessions === undefined) void refreshSessions()
+    if (next === 'models' && tab !== 'models' && modelCatalog === undefined) void refreshModels()
   }
 
   const refreshVisible = async (): Promise<void> => {
     await refresh()
     if (tab === 'workspaces') await refreshWorkspaces()
     if (tab === 'sessions') await refreshSessions()
+    if (tab === 'models') await refreshModels()
   }
 
   const updateWorkspaceDraft = (
@@ -339,7 +456,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
         <MemoryButton
           type="button"
           style={memorySectionStyles.button}
-          disabled={busy || workspaceBusy || sessionBusy || (tab === 'workspaces' && workspaceDirty)}
+          disabled={busy || workspaceBusy || sessionBusy || modelBusy || (tab === 'workspaces' && workspaceDirty)}
           onClick={() => { void refreshVisible() }}
         >
           {t('refresh')}
@@ -354,7 +471,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       </div>
 
       <nav style={memorySectionStyles.tabs} aria-label={t('sections')}>
-        {(['global', 'workspaces', 'sessions'] as const).map(id => (
+        {(['global', 'workspaces', 'sessions', 'models'] as const).map(id => (
           <MemoryButton
             key={id}
             type="button"
@@ -373,6 +490,8 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
             ? t('conflict')
             : error.kind === 'workspace-conflict'
               ? t('workspaceConflict')
+              : error.kind === 'model-conflict'
+                ? t('modelConflict')
               : error.value}
         </p>
       )}
@@ -527,7 +646,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
             )}
           </div>
         </div>
-      ) : (
+      ) : tab === 'sessions' ? (
         <div style={memorySectionStyles.sessionPanel}>
           <header style={memorySectionStyles.workspaceHeading}>
             <div>
@@ -541,22 +660,164 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
           {sessions?.available === true && sessions.sessions.length === 0
             ? <p style={memorySectionStyles.muted}>{t('sessionEmpty')}</p>
             : null}
-          <div style={memorySectionStyles.sessionList}>
-            {sessions?.sessions.map(session => (
-              <article key={session.sessionId} style={memorySectionStyles.sessionCard}>
-                <header style={memorySectionStyles.recordHeading}>
-                  <strong style={memorySectionStyles.sessionId}>{session.sessionId}</strong>
-                  <span style={session.eligible ? memorySectionStyles.eligibleBadge : memorySectionStyles.ineligibleBadge}>
-                    {session.eligible ? t('sessionEligible') : t(sessionReasonKey(session.reason))}
-                  </span>
-                </header>
-                <div style={memorySectionStyles.sessionMeta}>
-                  <span>{t('sessionWorkspace', { value: session.workspaceName ?? '—' })}</span>
-                  <span>{t('sessionCreatedAt', { value: new Date(session.createdAt).toISOString() })}</span>
-                  <span>{t('sessionNoReceipt')}</span>
-                </div>
-              </article>
-            ))}
+          <div style={memorySectionStyles.workspaceLayout}>
+            <aside style={memorySectionStyles.workspaceList} aria-label={t('sessionWorkspaceList')}>
+              <strong>{t('sessionWorkspaceList')}</strong>
+              {sessionWorkspaceGroups.map(group => (
+                <MemoryButton
+                  key={group.key}
+                  type="button"
+                  variant="workspace"
+                  style={{
+                    ...memorySectionStyles.workspaceButton,
+                    ...(selectedSessionWorkspace?.key === group.key ? memorySectionStyles.activeWorkspaceButton : {}),
+                  }}
+                  disabled={sessionBusy}
+                  onClick={() => { setSelectedSessionWorkspaceKey(group.key) }}
+                >
+                  <span>{group.workspaceName ?? t('sessionWorkspaceUnassigned')}</span>
+                  <small style={memorySectionStyles.muted}>{t('sessionCount', { count: group.sessions.length })}</small>
+                </MemoryButton>
+              ))}
+            </aside>
+            <div style={memorySectionStyles.workspaceDetail}>
+              {selectedSessionWorkspace === undefined ? null : (
+                <>
+                  <header style={memorySectionStyles.workspaceHeading}>
+                    <h3 style={memorySectionStyles.workspaceTitle}>
+                      {selectedSessionWorkspace.workspaceName ?? t('sessionWorkspaceUnassigned')}
+                    </h3>
+                    <span style={memorySectionStyles.muted}>
+                      {t('sessionCount', { count: selectedSessionWorkspace.sessions.length })}
+                    </span>
+                  </header>
+                  <div style={memorySectionStyles.sessionList}>
+                    {selectedSessionWorkspace.sessions.map(session => (
+                      <article key={session.sessionId} style={memorySectionStyles.sessionCard}>
+                        <header style={memorySectionStyles.recordHeading}>
+                          <div style={memorySectionStyles.sessionIdentity}>
+                            <strong style={memorySectionStyles.sessionTitle}>{session.title ?? t('sessionUntitled')}</strong>
+                            <small style={{ ...memorySectionStyles.sessionId, ...memorySectionStyles.muted }}>{session.sessionId}</small>
+                          </div>
+                          <span style={session.eligible ? memorySectionStyles.eligibleBadge : memorySectionStyles.ineligibleBadge}>
+                            {session.eligible ? t('sessionEligible') : t(sessionReasonKey(session.reason))}
+                          </span>
+                        </header>
+                        <div style={memorySectionStyles.sessionMeta}>
+                          <span>{t('sessionCreatedAt', { value: new Date(session.createdAt).toISOString() })}</span>
+                          <span>{session.latestReceipt === null
+                            ? t('sessionNoReceipt')
+                            : t(session.latestReceipt.current ? 'sessionReceiptCurrent' : 'sessionReceiptOlder', {
+                              state: t(sessionReceiptStateKey(session.latestReceipt.state)),
+                              attempt: session.latestReceipt.attempt,
+                            })}</span>
+                          {session.latestReceipt === null ? null : (
+                            <span style={memorySectionStyles.debugPath}>{t('sessionDebugLog', {
+                              reviewId: session.latestReceipt.reviewId,
+                              attempt: session.latestReceipt.attempt,
+                            })}</span>
+                          )}
+                        </div>
+                        {consolidationResult?.sessionId === session.sessionId
+                          ? <>
+                              <p style={memorySectionStyles.sessionResult}>{t('sessionConsolidationResult', {
+                                state: t(sessionReceiptStateKey(consolidationResult.result.status)),
+                                count: consolidationResult.result.changeCount,
+                              })}</p>
+                              <code style={memorySectionStyles.debugPath}>{t('sessionDebugLog', {
+                                reviewId: consolidationResult.result.reviewId,
+                                attempt: consolidationResult.result.attempt,
+                              })}</code>
+                            </>
+                          : null}
+                        {session.eligible ? (
+                          <div style={memorySectionStyles.actions}>
+                            <MemoryButton
+                              variant="primary"
+                              style={memorySectionStyles.primaryButton}
+                              disabled={consolidatingSessionId !== undefined}
+                              onClick={() => { void consolidateSession(session.sessionId) }}
+                            >
+                              {consolidatingSessionId === session.sessionId ? t('sessionConsolidating') : t('sessionConsolidate')}
+                            </MemoryButton>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div style={memorySectionStyles.modelPanel}>
+          <div>
+            <h3 style={memorySectionStyles.workspaceTitle}>{t('modelSettingsTitle')}</h3>
+            <p style={memorySectionStyles.subtitle}>{t('modelSettingsHelp')}</p>
+          </div>
+          {modelBusy && modelCatalog === undefined ? <p>{t('loading')}</p> : null}
+          {modelCatalog?.available === false ? <p style={memorySectionStyles.validation}>{t('modelCatalogUnavailable')}</p> : null}
+          {modelCatalog?.available === true && modelCatalog.providers.length === 0
+            ? <p style={memorySectionStyles.validation}>{t('modelCatalogEmpty')}</p>
+            : null}
+          {modelCatalog?.failures.map(failure => (
+            <p key={failure.provider} style={memorySectionStyles.validation}>
+              {t('modelCatalogFailure', { provider: failure.provider, message: failure.message })}
+            </p>
+          ))}
+          <div style={memorySectionStyles.modelFields}>
+            <label style={memorySectionStyles.field}>
+              <span>{t('modelProvider')}</span>
+              <select
+                style={memorySectionStyles.input}
+                value={modelProvider}
+                disabled={modelBusy || modelCatalog?.available !== true}
+                onChange={(event) => {
+                  const provider = event.target.value
+                  setModelProvider(provider)
+                  setModelName(modelCatalog?.providers.find(entry => entry.id === provider)?.models[0]?.id ?? '')
+                }}
+              >
+                {!modelCatalog?.providers.some(provider => provider.id === modelProvider)
+                  ? <option value={modelProvider}>{modelProvider || '—'}</option>
+                  : null}
+                {modelCatalog?.providers.map(provider => (
+                  <option key={provider.id} value={provider.id}>{provider.name} ({provider.id})</option>
+                ))}
+              </select>
+            </label>
+            <label style={memorySectionStyles.field}>
+              <span>{t('modelName')}</span>
+              <select
+                style={memorySectionStyles.input}
+                value={modelName}
+                disabled={modelBusy || modelCatalog?.available !== true}
+                onChange={event => { setModelName(event.target.value) }}
+              >
+                {!selectedModelProvider?.models.some(model => model.id === modelName)
+                  ? <option value={modelName}>{modelName || '—'}</option>
+                  : null}
+                {selectedModelProvider?.models.map(model => (
+                  <option key={model.id} value={model.id}>{model.name} ({model.id})</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <p style={memorySectionStyles.muted}>{t('modelCurrent', {
+            provider: modelCatalog?.selection.provider ?? '—',
+            model: modelCatalog?.selection.model ?? '—',
+          })}</p>
+          <p style={memorySectionStyles.muted}>{t('debugLocation')}</p>
+          <div style={memorySectionStyles.actions}>
+            <MemoryButton
+              variant="primary"
+              style={memorySectionStyles.primaryButton}
+              disabled={modelBusy || modelCatalog?.available !== true || modelProvider === '' || modelName === ''}
+              onClick={() => { void saveModel() }}
+            >
+              {t('saveModel')}
+            </MemoryButton>
           </div>
         </div>
       )}
@@ -585,10 +846,16 @@ export const memorySectionStyles: Record<string, React.CSSProperties> = {
   sessionPanel: { display: 'grid', gap: 14, width: '100%', maxWidth: '100%', minWidth: 0 },
   sessionList: { display: 'grid', gap: 10, minWidth: 0 },
   sessionCard: { display: 'grid', gap: 10, padding: 14, minWidth: 0, border: '1px solid rgba(127,127,127,0.3)', borderRadius: 10 },
+  sessionIdentity: { display: 'grid', gap: 3, minWidth: 0 },
+  sessionTitle: { minWidth: 0, overflowWrap: 'anywhere' },
   sessionId: { minWidth: 0, overflowWrap: 'anywhere' },
   sessionMeta: { display: 'flex', flexWrap: 'wrap', gap: '6px 18px', minWidth: 0, opacity: 0.72, fontSize: 13 },
   eligibleBadge: { padding: '3px 8px', borderRadius: 999, background: 'rgba(45,160,90,0.18)', color: '#2a9d58', fontSize: 12, fontWeight: 600 },
   ineligibleBadge: { padding: '3px 8px', borderRadius: 999, background: 'rgba(127,127,127,0.16)', color: 'inherit', opacity: 0.76, fontSize: 12 },
+  sessionResult: { margin: 0, padding: 10, borderRadius: 8, background: 'rgba(45,160,90,0.12)', overflowWrap: 'anywhere' },
+  debugPath: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' },
+  modelPanel: { display: 'grid', gap: 16, width: '100%', maxWidth: 720, minWidth: 0 },
+  modelFields: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12, minWidth: 0 },
   workspaceLayout: { display: 'flex', flexWrap: 'wrap', gap: 16, width: '100%', maxWidth: '100%', minWidth: 0, alignItems: 'flex-start' },
   workspaceList: { display: 'grid', gap: 8, flex: '1 1 180px', maxWidth: '100%', minWidth: 0 },
   workspaceButton: { display: 'grid', gap: 4, width: '100%', minWidth: 0, padding: 12, textAlign: 'left', border: '1px solid rgba(127,127,127,0.3)', borderRadius: 8, background: 'transparent', color: 'inherit', cursor: 'pointer', transition: 'background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease, filter 140ms ease' },
@@ -638,5 +905,20 @@ function sessionReasonKey(reason: SessionIneligibleReason): MemoryLocaleKey {
     case 'missing-cwd': return 'sessionReasonMissingCwd'
     case 'workspace-unavailable': return 'sessionReasonWorkspaceUnavailable'
     case 'unstable': return 'sessionReasonUnstable'
+  }
+}
+
+function sessionReceiptStateKey(state: SessionReceiptState): MemoryLocaleKey {
+  switch (state) {
+    case 'committing': return 'sessionStateCommitting'
+    case 'committed': return 'sessionStateCommitted'
+    case 'no-change': return 'sessionStateNoChange'
+    case 'cancelled': return 'sessionStateCancelled'
+    case 'source-changed': return 'sessionStateSourceChanged'
+    case 'target-conflict': return 'sessionStateTargetConflict'
+    case 'invalid-proposal': return 'sessionStateInvalidProposal'
+    case 'provider-failed': return 'sessionStateProviderFailed'
+    case 'evidence-too-large': return 'sessionStateEvidenceTooLarge'
+    case 'internal-error': return 'sessionStateInternalError'
   }
 }

@@ -45,6 +45,12 @@ export interface WorkspaceScope {
   readonly directory: string
 }
 
+/** Host-only Workspace location that does not require retaining or exposing cwd. */
+export interface WorkspaceTarget {
+  readonly key: string
+  readonly directory: string
+}
+
 /** Parsed Workspace memory record. */
 export interface WorkspaceMemory {
   readonly name: string
@@ -58,6 +64,11 @@ export interface WorkspaceMemoryView {
   readonly records: readonly WorkspaceMemory[]
   readonly index: string
   readonly revision: MemoryRevision
+}
+
+/** Deterministic result of applying a Workspace batch without publishing it. */
+export interface WorkspaceMemoryPreview extends WorkspaceMemoryView {
+  readonly changed: boolean
 }
 
 /** One atomic Workspace mutation. */
@@ -126,6 +137,20 @@ export class MarkdownMemoryStore extends Service {
     return match[1]
   }
 
+  /** Return the opaque Browser identity and display label for one resolvable Workspace cwd. */
+  workspaceReferenceForCwd(cwd: string): { workspaceId: WorkspaceId; displayName: string } {
+    const scope = this.scopeForCwd(cwd)
+    const match = WORKSPACE_KEY_PATTERN.exec(scope.key)
+    if (match?.[1] === undefined) throw new MemoryValidationError(`cannot derive Workspace display name: ${cwd}`)
+    return { workspaceId: workspaceIdOf(scope.key), displayName: match[1] }
+  }
+
+  /** Resolve one receipt-owned Workspace key without accepting an arbitrary path. */
+  workspaceTargetForKey(key: string): WorkspaceTarget {
+    if (!WORKSPACE_KEY_PATTERN.test(key)) throw new MemoryValidationError(`invalid Workspace key: ${key}`)
+    return { key, directory: join(this.root, 'workspaces', key) }
+  }
+
   /** Read the authoritative global document. */
   async readGlobal(): Promise<{ content: string; revision: MemoryRevision }> {
     return this.readGlobalSync()
@@ -153,12 +178,12 @@ export class MarkdownMemoryStore extends Service {
   }
 
   /** Read and validate all records in one Workspace. */
-  async readWorkspace(scope: WorkspaceScope): Promise<WorkspaceMemoryView> {
+  async readWorkspace(scope: Pick<WorkspaceTarget, 'directory'>): Promise<WorkspaceMemoryView> {
     return this.readWorkspaceSync(scope)
   }
 
   /** Synchronous Workspace view used during prompt assembly. */
-  readWorkspaceSync(scope: WorkspaceScope): WorkspaceMemoryView {
+  readWorkspaceSync(scope: Pick<WorkspaceTarget, 'directory'>): WorkspaceMemoryView {
     return readWorkspaceDirectory(scope.directory)
   }
 
@@ -219,7 +244,7 @@ export class MarkdownMemoryStore extends Service {
 
   /** Apply a revision-checked record batch and publish one new Workspace generation. */
   async commitWorkspace(input: {
-    scope: WorkspaceScope
+    scope: WorkspaceTarget
     expectedRevision: MemoryRevision
     changes: readonly WorkspaceMemoryChange[]
   }): Promise<MemoryCommitResult> {
@@ -247,24 +272,16 @@ export class MarkdownMemoryStore extends Service {
     return this.withLock(`workspace:${key}`, async () => {
       const current = readWorkspaceDirectory(directory)
       if (current.revision !== expectedRevision) throw new MemoryConflictError(current.revision)
-      const next = new Map(current.records.map(record => [record.name, record]))
       let operation: MemoryCommitResult['operation'] = 'update'
-      for (const change of changes) {
-        if (change.action === 'put') {
-          operation = next.has(change.record.name) ? 'update' : 'create'
-          next.set(change.record.name, { ...change.record, content: normalizeMarkdown(change.record.content) })
-        } else {
-          if (!next.delete(change.name)) throw new MemoryValidationError(`workspace memory does not exist: ${change.name}`)
-          operation = 'delete'
-        }
+      if (changes.length === 1) {
+        const change = changes[0]!
+        operation = change.action === 'delete'
+          ? 'delete'
+          : current.records.some(record => record.name === change.record.name) ? 'update' : 'create'
       }
-      if (changes.length !== 1) operation = 'update'
-      const records = [...next.values()].sort((left, right) => left.name.localeCompare(right.name, 'en'))
-      publishWorkspace(directory, records)
-      return {
-        operation,
-        revision: workspaceRevision(records.map(record => [`${record.name}.md`, serializeWorkspaceRecord(record)])),
-      }
+      const preview = previewWorkspaceChanges(current, changes)
+      if (preview.changed) publishWorkspace(directory, preview.records)
+      return { operation, revision: preview.revision }
     })
   }
 
@@ -321,6 +338,34 @@ export class MarkdownMemoryStore extends Service {
       if (this.locks.get(key) === queued) this.locks.delete(key)
     }
   }
+}
+
+/** Apply and validate one batch using the exact generation algorithm used by commit. */
+export function previewWorkspaceChanges(
+  current: WorkspaceMemoryView,
+  changes: readonly WorkspaceMemoryChange[],
+): WorkspaceMemoryPreview {
+  validateWorkspaceChanges(changes)
+  const next = new Map<string, WorkspaceMemory>()
+  for (const record of current.records) {
+    validateRecord(record)
+    if (next.has(record.name)) throw new MemoryValidationError(`duplicate workspace memory: ${record.name}`)
+    next.set(record.name, normalizeWorkspaceRecord(record))
+  }
+  for (const change of changes) {
+    if (change.action === 'put') {
+      next.set(change.record.name, normalizeWorkspaceRecord(change.record))
+    } else if (!next.delete(change.name)) {
+      throw new MemoryValidationError(`workspace memory does not exist: ${change.name}`)
+    }
+  }
+  const records = [...next.values()].sort((left, right) => left.name.localeCompare(right.name, 'en'))
+  const index = renderIndex(records)
+  const changed = !sameWorkspaceRecords(current.records, records)
+  const revision = changed
+    ? workspaceRevision(records.map(record => [`${record.name}.md`, serializeWorkspaceRecord(record)]))
+    : current.revision
+  return { records, index, revision, changed }
 }
 
 function readWorkspaceDirectory(requestedDirectory: string): WorkspaceMemoryView {
@@ -416,6 +461,25 @@ function serializeWorkspaceRecord(record: WorkspaceMemory): string {
     metadata: { type: record.type },
   }).trimEnd()
   return `---\n${frontmatter}\n---\n\n${normalizeMarkdown(record.content)}`
+}
+
+function normalizeWorkspaceRecord(record: WorkspaceMemory): WorkspaceMemory {
+  return { ...record, content: normalizeMarkdown(record.content) }
+}
+
+function sameWorkspaceRecords(left: readonly WorkspaceMemory[], right: readonly WorkspaceMemory[]): boolean {
+  if (left.length !== right.length) return false
+  const normalizedLeft = [...left]
+    .map(normalizeWorkspaceRecord)
+    .sort((a, b) => a.name.localeCompare(b.name, 'en'))
+  return normalizedLeft.every((record, index) => {
+    const candidate = right[index]
+    return candidate !== undefined
+      && record.name === candidate.name
+      && record.description === candidate.description
+      && record.type === candidate.type
+      && record.content === candidate.content
+  })
 }
 
 function renderIndex(records: readonly WorkspaceMemory[]): string {

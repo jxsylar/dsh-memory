@@ -211,6 +211,17 @@ describe('MarkdownMemoryStore', () => {
     })).rejects.toBeInstanceOf(MemoryValidationError)
   })
 
+  it('resolves only canonical receipt-owned Workspace keys', () => {
+    const memory = store()
+    const scope = memory.scopeForCwd('/work/recovery-target')
+    expect(memory.workspaceTargetForKey(scope.key)).toEqual({
+      key: scope.key,
+      directory: scope.directory,
+    })
+    expect(() => memory.workspaceTargetForKey('../escape')).toThrow(MemoryValidationError)
+    expect(() => memory.workspaceTargetForKey('not-a-workspace-key')).toThrow(MemoryValidationError)
+  })
+
   it('renders only Global memory when a Session has no cwd', () => {
     const memory = store()
     memory.initialize()

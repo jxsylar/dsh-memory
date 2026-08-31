@@ -1,5 +1,7 @@
 /** Browser/Host wire values for the dedicated loopback Memory RPC channel. */
 
+import { isConsolidationReviewId } from './consolidation-identity.ts'
+
 /** Opaque content revision used for compare-and-swap writes. */
 export type MemoryRevision = string & { readonly __memoryRevision: unique symbol }
 
@@ -50,12 +52,35 @@ export interface WorkspaceListResponse {
 /** Deterministic reason why a persisted Session cannot be consolidated. */
 export type SessionIneligibleReason = 'live' | 'missing-cwd' | 'workspace-unavailable' | 'unstable'
 
+export type SessionReceiptState =
+  | 'committing'
+  | 'committed'
+  | 'no-change'
+  | 'cancelled'
+  | 'source-changed'
+  | 'target-conflict'
+  | 'invalid-proposal'
+  | 'provider-failed'
+  | 'evidence-too-large'
+  | 'internal-error'
+
+/** Browser-safe receipt status without model route, Workspace key, or revisions. */
+export interface SessionReceiptSummary {
+  reviewId: string
+  state: SessionReceiptState
+  attempt: number
+  current: boolean
+  completedAt: string | null
+}
+
 /** Browser-safe projection of one persisted Session snapshot. */
 export type SessionSummary = {
   sessionId: string
+  title: string | null
   createdAt: number
+  workspaceId: WorkspaceId | null
   workspaceName: string | null
-  latestReceipt: null
+  latestReceipt: SessionReceiptSummary | null
 } & (
   | { eligible: true; reason: null }
   | { eligible: false; reason: SessionIneligibleReason }
@@ -66,6 +91,52 @@ export interface SessionListResponse {
   available: boolean
   sessions: SessionSummary[]
 }
+
+export interface SessionConsolidatePayload {
+  sessionId: string
+}
+
+export interface SessionConsolidateResponse {
+  status: Exclude<SessionReceiptState, 'committing'>
+  recovered: boolean
+  reviewId: string
+  attempt: number
+  changeCount: number
+}
+
+/** Memory-specific model route chosen from DSH's active model catalog. */
+export interface ConsolidationModelSelection {
+  provider: string
+  model: string
+}
+
+export interface ConsolidationModelView {
+  id: string
+  name: string
+  description?: string
+}
+
+export interface ConsolidationModelProviderView {
+  id: string
+  name: string
+  models: ConsolidationModelView[]
+}
+
+export interface ConsolidationModelCatalogResponse {
+  available: boolean
+  selection: ConsolidationModelSelection
+  revision: MemoryRevision
+  providers: ConsolidationModelProviderView[]
+  failures: Array<{ provider: string; message: string }>
+}
+
+export interface ConsolidationModelSelectPayload extends ConsolidationModelSelection {
+  expectedRevision: MemoryRevision
+}
+
+export type ConsolidationModelSelectResponse =
+  | { status: 'committed'; revision: MemoryRevision }
+  | { status: 'conflict'; currentRevision: MemoryRevision }
 
 /** One Browser-proposed change in a canonical delete-then-put batch. */
 export type WorkspaceCommitChange =
@@ -130,6 +201,23 @@ export function parseWorkspaceReadPayload(value: unknown): { workspaceId: Worksp
   const record = requireRecord(value, 'payload')
   requireExactKeys(record, ['workspaceId'], 'payload')
   return { workspaceId: requireWorkspaceId(record.workspaceId, 'payload.workspaceId') }
+}
+
+/** Parse one manual Session consolidation request. */
+export function parseSessionConsolidatePayload(value: unknown): SessionConsolidatePayload {
+  const record = requireRecord(value, 'payload')
+  requireExactKeys(record, ['sessionId'], 'payload')
+  return { sessionId: requireNonEmptySingleLine(record.sessionId, 'payload.sessionId') }
+}
+
+export function parseConsolidationModelSelectPayload(value: unknown): ConsolidationModelSelectPayload {
+  const record = requireRecord(value, 'payload')
+  requireExactKeys(record, ['expectedRevision', 'provider', 'model'], 'payload')
+  return {
+    expectedRevision: requireRevision(record.expectedRevision, 'payload.expectedRevision'),
+    provider: requireNonEmptySingleLine(record.provider, 'payload.provider'),
+    model: requireNonEmptySingleLine(record.model, 'payload.model'),
+  }
 }
 
 /** Parse and canonicalize a revision-checked Workspace mutation batch. */
@@ -265,16 +353,91 @@ export function parseSessionListResponse(value: unknown): SessionListResponse {
   }
 }
 
+/** Parse one terminal manual consolidation result on both sides of the wire. */
+export function parseSessionConsolidateResponse(value: unknown): SessionConsolidateResponse {
+  const record = requireRecord(value, 'session consolidate response')
+  requireExactKeys(record, ['status', 'recovered', 'reviewId', 'attempt', 'changeCount'], 'session consolidate response')
+  if (!isTerminalReceiptState(record.status)) throw new TypeError('session consolidate response.status must be terminal')
+  if (typeof record.recovered !== 'boolean') throw new TypeError('session consolidate response.recovered must be a boolean')
+  if (!isConsolidationReviewId(record.reviewId)) {
+    throw new TypeError('session consolidate response.reviewId must be a review id')
+  }
+  if (!isNonNegativeInteger(record.attempt)) throw new TypeError('session consolidate response.attempt must be a non-negative integer')
+  if (!isNonNegativeInteger(record.changeCount)) throw new TypeError('session consolidate response.changeCount must be a non-negative integer')
+  return {
+    status: record.status,
+    recovered: record.recovered,
+    reviewId: record.reviewId,
+    attempt: record.attempt,
+    changeCount: record.changeCount,
+  }
+}
+
+export function parseConsolidationModelCatalogResponse(value: unknown): ConsolidationModelCatalogResponse {
+  const record = requireRecord(value, 'model catalog response')
+  requireExactKeys(record, ['available', 'selection', 'revision', 'providers', 'failures'], 'model catalog response')
+  if (typeof record.available !== 'boolean') throw new TypeError('model catalog response.available must be a boolean')
+  const selection = parseModelSelection(record.selection, 'model catalog response.selection')
+  const revision = requireRevision(record.revision, 'model catalog response.revision')
+  if (!Array.isArray(record.providers)) throw new TypeError('model catalog response.providers must be an array')
+  if (!Array.isArray(record.failures)) throw new TypeError('model catalog response.failures must be an array')
+  const providers = record.providers.map((value, index) => parseModelProvider(value, `model catalog response.providers[${index}]`))
+  const failures = record.failures.map((value, index) => {
+    const label = `model catalog response.failures[${index}]`
+    const failure = requireRecord(value, label)
+    requireExactKeys(failure, ['provider', 'message'], label)
+    return {
+      provider: requireNonEmptySingleLine(failure.provider, `${label}.provider`),
+      message: requireNonEmptySingleLine(failure.message, `${label}.message`),
+    }
+  })
+  if (!record.available && (providers.length !== 0 || failures.length !== 0)) {
+    throw new TypeError('unavailable model catalog must not contain providers or failures')
+  }
+  return { available: record.available, selection, revision, providers, failures }
+}
+
+export function parseConsolidationModelSelectResponse(value: unknown): ConsolidationModelSelectResponse {
+  const record = requireRecord(value, 'model select response')
+  if (record.status === 'committed') {
+    requireExactKeys(record, ['status', 'revision'], 'model select response')
+    return { status: 'committed', revision: requireRevision(record.revision, 'model select response.revision') }
+  }
+  if (record.status === 'conflict') {
+    requireExactKeys(record, ['status', 'currentRevision'], 'model select response')
+    return { status: 'conflict', currentRevision: requireRevision(record.currentRevision, 'model select response.currentRevision') }
+  }
+  throw new TypeError('model select response.status must be committed or conflict')
+}
+
 function parseSessionSummary(value: unknown, label: string): SessionSummary {
   const record = requireRecord(value, label)
-  requireExactKeys(record, ['sessionId', 'createdAt', 'workspaceName', 'eligible', 'reason', 'latestReceipt'], label)
+  requireExactKeys(record, [
+    'sessionId',
+    'title',
+    'createdAt',
+    'workspaceId',
+    'workspaceName',
+    'eligible',
+    'reason',
+    'latestReceipt',
+  ], label)
   const sessionId = requireNonEmptySingleLine(record.sessionId, `${label}.sessionId`)
+  const title = record.title === null ? null : requireNonEmptySingleLine(record.title, `${label}.title`)
   if (!isNonNegativeInteger(record.createdAt)) throw new TypeError(`${label}.createdAt must be a non-negative integer`)
+  const workspaceId = record.workspaceId === null
+    ? null
+    : requireWorkspaceId(record.workspaceId, `${label}.workspaceId`)
   const workspaceName = record.workspaceName === null
     ? null
     : requireNonEmptySingleLine(record.workspaceName, `${label}.workspaceName`)
-  if (record.latestReceipt !== null) throw new TypeError(`${label}.latestReceipt must be null before receipts are implemented`)
-  const base = { sessionId, createdAt: record.createdAt, workspaceName, latestReceipt: null } as const
+  if ((workspaceId === null) !== (workspaceName === null)) {
+    throw new TypeError(`${label}.workspaceId and workspaceName must both be null or both be present`)
+  }
+  const latestReceipt = record.latestReceipt === null
+    ? null
+    : parseSessionReceiptSummary(record.latestReceipt, `${label}.latestReceipt`)
+  const base = { sessionId, title, createdAt: record.createdAt, workspaceId, workspaceName, latestReceipt } as const
   if (record.eligible === true) {
     if (record.reason !== null) throw new TypeError(`${label}.reason must be null when eligible`)
     return { ...base, eligible: true, reason: null }
@@ -283,6 +446,59 @@ function parseSessionSummary(value: unknown, label: string): SessionSummary {
     throw new TypeError(`${label}.reason must explain an ineligible Session`)
   }
   return { ...base, eligible: false, reason: record.reason }
+}
+
+function parseSessionReceiptSummary(value: unknown, label: string): SessionReceiptSummary {
+  const record = requireRecord(value, label)
+  requireExactKeys(record, ['reviewId', 'state', 'attempt', 'current', 'completedAt'], label)
+  if (!isConsolidationReviewId(record.reviewId)) {
+    throw new TypeError(`${label}.reviewId must be a review id`)
+  }
+  if (!isSessionReceiptState(record.state)) throw new TypeError(`${label}.state must be a receipt state`)
+  if (!isNonNegativeInteger(record.attempt)) throw new TypeError(`${label}.attempt must be a non-negative integer`)
+  if (typeof record.current !== 'boolean') throw new TypeError(`${label}.current must be a boolean`)
+  if (record.completedAt !== null && (typeof record.completedAt !== 'string' || Number.isNaN(Date.parse(record.completedAt)))) {
+    throw new TypeError(`${label}.completedAt must be null or an ISO timestamp`)
+  }
+  return {
+    reviewId: record.reviewId,
+    state: record.state,
+    attempt: record.attempt,
+    current: record.current,
+    completedAt: record.completedAt,
+  }
+}
+
+function parseModelSelection(value: unknown, label: string): ConsolidationModelSelection {
+  const record = requireRecord(value, label)
+  requireExactKeys(record, ['provider', 'model'], label)
+  return {
+    provider: requireNonEmptySingleLine(record.provider, `${label}.provider`),
+    model: requireNonEmptySingleLine(record.model, `${label}.model`),
+  }
+}
+
+function parseModelProvider(value: unknown, label: string): ConsolidationModelProviderView {
+  const record = requireRecord(value, label)
+  requireExactKeys(record, ['id', 'name', 'models'], label)
+  if (!Array.isArray(record.models)) throw new TypeError(`${label}.models must be an array`)
+  return {
+    id: requireNonEmptySingleLine(record.id, `${label}.id`),
+    name: requireNonEmptySingleLine(record.name, `${label}.name`),
+    models: record.models.map((entry, index) => {
+      const modelLabel = `${label}.models[${index}]`
+      const model = requireRecord(entry, modelLabel)
+      const keys = model.description === undefined ? ['id', 'name'] : ['id', 'name', 'description']
+      requireExactKeys(model, keys, modelLabel)
+      return {
+        id: requireNonEmptySingleLine(model.id, `${modelLabel}.id`),
+        name: requireNonEmptySingleLine(model.name, `${modelLabel}.name`),
+        ...(model.description === undefined
+          ? {}
+          : { description: requireNonEmptyString(model.description, `${modelLabel}.description`) }),
+      }
+    }),
+  }
 }
 
 function parseWorkspaceSummary(value: unknown, label: string): WorkspaceSummary {
@@ -354,6 +570,11 @@ function requireNonEmptySingleLine(value: unknown, label: string): string {
   return value
 }
 
+function requireNonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.trim() === '') throw new TypeError(`${label} must be a non-empty string`)
+  return value
+}
+
 function requireWorkspaceMemoryName(value: unknown, label: string): string {
   if (typeof value !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(value)) {
     throw new TypeError(`${label} must be a kebab-case Workspace memory name`)
@@ -363,6 +584,16 @@ function requireWorkspaceMemoryName(value: unknown, label: string): string {
 
 function isSessionIneligibleReason(value: unknown): value is SessionIneligibleReason {
   return value === 'live' || value === 'missing-cwd' || value === 'workspace-unavailable' || value === 'unstable'
+}
+
+function isSessionReceiptState(value: unknown): value is SessionReceiptState {
+  return value === 'committing' || isTerminalReceiptState(value)
+}
+
+function isTerminalReceiptState(value: unknown): value is Exclude<SessionReceiptState, 'committing'> {
+  return value === 'committed' || value === 'no-change' || value === 'cancelled'
+    || value === 'source-changed' || value === 'target-conflict' || value === 'invalid-proposal'
+    || value === 'provider-failed' || value === 'evidence-too-large' || value === 'internal-error'
 }
 
 function isNonNegativeInteger(value: unknown): value is number {

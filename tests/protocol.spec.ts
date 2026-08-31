@@ -6,6 +6,11 @@ import {
   parseGlobalReplaceResponse,
   parseMemoryStatus,
   parseSessionListResponse,
+  parseSessionConsolidatePayload,
+  parseSessionConsolidateResponse,
+  parseConsolidationModelCatalogResponse,
+  parseConsolidationModelSelectPayload,
+  parseConsolidationModelSelectResponse,
   parseWorkspaceCommitPayload,
   parseWorkspaceCommitResponse,
   parseWorkspaceListResponse,
@@ -78,12 +83,59 @@ describe('Memory RPC protocol', () => {
       .toEqual({ status: 'conflict', currentRevision: 'sha256:newer' })
     expect(parseSessionListResponse({ available: true, sessions: [{
       sessionId: 'session-1',
+      title: 'Memory design',
       createdAt: 42,
+      workspaceId: WORKSPACE_ID,
       workspaceName: 'dsh-memory',
       eligible: true,
       reason: null,
       latestReceipt: null,
     }] })).toMatchObject({ available: true, sessions: [{ sessionId: 'session-1', eligible: true }] })
+    expect(parseSessionConsolidatePayload({ sessionId: 'session-1' })).toEqual({ sessionId: 'session-1' })
+    expect(parseSessionConsolidateResponse({
+      status: 'committed',
+      recovered: false,
+      reviewId: `review-${'a'.repeat(64)}`,
+      attempt: 1,
+      changeCount: 2,
+    })).toMatchObject({ status: 'committed', attempt: 1, changeCount: 2 })
+    expect(parseSessionConsolidateResponse({
+      status: 'evidence-too-large',
+      recovered: false,
+      reviewId: `review-${'c'.repeat(64)}`,
+      attempt: 1,
+      changeCount: 0,
+    })).toMatchObject({ status: 'evidence-too-large' })
+    expect(parseSessionListResponse({ available: true, sessions: [{
+      sessionId: 'session-2',
+      title: null,
+      createdAt: 43,
+      workspaceId: WORKSPACE_ID,
+      workspaceName: 'dsh-memory',
+      eligible: true,
+      reason: null,
+      latestReceipt: {
+        reviewId: `review-${'b'.repeat(64)}`,
+        state: 'committed',
+        attempt: 1,
+        current: false,
+        completedAt: '2026-08-31T00:00:00.000Z',
+      },
+    }] }).sessions[0]?.latestReceipt).toMatchObject({ state: 'committed', current: false })
+    expect(parseConsolidationModelCatalogResponse({
+      available: true,
+      selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      revision: 'sha256:models',
+      providers: [{ id: 'deepseek-official', name: 'DeepSeek', models: [{
+        id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', description: 'Fast model.',
+      }] }],
+      failures: [],
+    })).toMatchObject({ providers: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-flash' }] }] })
+    expect(parseConsolidationModelSelectPayload({
+      expectedRevision: 'sha256:models', provider: 'deepseek-official', model: 'deepseek-v4-flash',
+    })).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+    expect(parseConsolidationModelSelectResponse({ status: 'committed', revision: 'sha256:new-model' }))
+      .toEqual({ status: 'committed', revision: 'sha256:new-model' })
   })
 
   it('rejects unknown fields on both requests and responses', () => {
@@ -135,7 +187,9 @@ describe('Memory RPC protocol', () => {
     expect(() => parseSessionListResponse({ available: false, sessions: [{ sessionId: 'hidden' }] })).toThrow(/empty/)
     expect(() => parseSessionListResponse({ available: true, sessions: [{
       sessionId: 'session-1',
+      title: 'Memory design',
       createdAt: 42,
+      workspaceId: WORKSPACE_ID,
       workspaceName: 'dsh-memory',
       eligible: true,
       reason: 'live',
@@ -143,11 +197,41 @@ describe('Memory RPC protocol', () => {
     }] })).toThrow(/null/)
     expect(() => parseSessionListResponse({ available: true, sessions: [{
       sessionId: 'session-1',
+      title: 'Memory design',
       createdAt: 42,
+      workspaceId: WORKSPACE_ID,
       workspaceName: 'dsh-memory',
       eligible: false,
       reason: 'unknown',
       latestReceipt: null,
     }] })).toThrow(/explain/)
+    expect(() => parseSessionListResponse({ available: true, sessions: [{
+      sessionId: 'session-1',
+      title: null,
+      createdAt: 42,
+      workspaceId: WORKSPACE_ID,
+      workspaceName: null,
+      eligible: false,
+      reason: 'workspace-unavailable',
+      latestReceipt: null,
+    }] })).toThrow(/both be null/)
+    expect(() => parseSessionConsolidatePayload({ sessionId: 'session-1', cwd: '/private' })).toThrow(/exactly/)
+    expect(() => parseSessionConsolidateResponse({
+      status: 'committing',
+      recovered: false,
+      reviewId: `review-${'a'.repeat(64)}`,
+      attempt: 1,
+      changeCount: 0,
+    })).toThrow(/terminal/)
+    expect(() => parseConsolidationModelCatalogResponse({
+      available: false,
+      selection: { provider: 'p', model: 'm' },
+      revision: 'sha256:models',
+      providers: [{ id: 'p', name: 'P', models: [] }],
+      failures: [],
+    })).toThrow(/must not contain/)
+    expect(() => parseConsolidationModelSelectPayload({
+      expectedRevision: 'sha256:models', provider: 'p', model: 'm', apiKey: 'secret',
+    })).toThrow(/exactly/)
   })
 })

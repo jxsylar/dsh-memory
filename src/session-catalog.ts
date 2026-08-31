@@ -1,15 +1,28 @@
 /** Read-only Session eligibility projection for the Memory settings page. */
 
 import type { MarkdownMemoryStore } from './memory-store.ts'
-import type { MemoryAgentRegistry, MemorySessionPersistence, MemorySessionSnapshot } from './host-contracts.ts'
+import type { ConsolidationReceipt, ConsolidationReceiptStore } from './consolidation-receipt.ts'
+import type {
+  MemoryAgentRegistry,
+  MemorySessionProjectionCache,
+  MemorySessionProjections,
+  MemorySessionSnapshot,
+  MemorySessionSnapshotPersistence,
+} from './host-contracts.ts'
 import type { SessionListResponse, SessionSummary } from './protocol.ts'
+import { isConsolidationWorkerSessionId } from './consolidation-identity.ts'
 
 /** Builds a stable candidate list without loading complete Session event logs. */
 export class SessionCatalog {
   constructor(
     private readonly store: MarkdownMemoryStore,
-    private readonly persistence: MemorySessionPersistence,
+    private readonly persistence: MemorySessionSnapshotPersistence,
     private readonly agents: MemoryAgentRegistry,
+    private readonly receipts?: ConsolidationReceiptStore,
+    private readonly getProjections: () => {
+      readonly live?: MemorySessionProjections
+      readonly cached?: MemorySessionProjectionCache
+    } = () => ({}),
   ) {}
 
   /** Observe each snapshot twice and classify only unchanged, non-live Sessions as eligible. */
@@ -21,8 +34,18 @@ export class SessionCatalog {
 
     const secondById = groupById(second)
     const duplicateFirstIds = duplicateIds(first)
-    const sessions = uniqueById(first)
-      .map(snapshot => this.classify(snapshot, secondById, duplicateFirstIds))
+    const unique = uniqueById(first).filter(snapshot => !isConsolidationWorkerSessionId(snapshot.header.id))
+    const latestReceipts = this.receipts?.latestBySourceSessions(new Map(
+      unique.map(snapshot => [snapshot.header.id, snapshot.revision]),
+    ))
+    const sessions = unique
+      .map(snapshot => this.classify(
+        snapshot,
+        secondById,
+        duplicateFirstIds,
+        latestReceipts?.get(snapshot.header.id),
+        this.readTitle(snapshot),
+      ))
       .sort((left, right) => right.createdAt - left.createdAt || left.sessionId.localeCompare(right.sessionId, 'en'))
     return { available: true, sessions }
   }
@@ -31,42 +54,74 @@ export class SessionCatalog {
     snapshot: MemorySessionSnapshot,
     secondById: ReadonlyMap<string, readonly MemorySessionSnapshot[]>,
     duplicateFirstIds: ReadonlySet<string>,
+    latestReceipt?: ConsolidationReceipt,
+    title: string | null = null,
   ): SessionSummary {
+    const workspace = workspaceReference(this.store, snapshot.header.cwd)
     const base = {
       sessionId: snapshot.header.id,
+      title,
       createdAt: snapshot.header.createdAt,
-      latestReceipt: null,
+      workspaceId: workspace?.workspaceId ?? null,
+      workspaceName: workspace?.displayName ?? null,
+      latestReceipt: this.receiptSummary(snapshot, latestReceipt),
     } as const
     if (this.agents.get(snapshot.header.id) !== undefined) {
-      return { ...base, workspaceName: workspaceName(this.store, snapshot.header.cwd), eligible: false, reason: 'live' }
+      return { ...base, eligible: false, reason: 'live' }
     }
     if (snapshot.header.cwd === undefined) {
-      return { ...base, workspaceName: null, eligible: false, reason: 'missing-cwd' }
+      return { ...base, eligible: false, reason: 'missing-cwd' }
     }
 
-    let resolvedWorkspaceName: string
-    try {
-      resolvedWorkspaceName = this.store.workspaceDisplayNameForCwd(snapshot.header.cwd)
-    } catch {
-      return { ...base, workspaceName: null, eligible: false, reason: 'workspace-unavailable' }
-    }
+    if (workspace === undefined) return { ...base, eligible: false, reason: 'workspace-unavailable' }
 
     const matching = secondById.get(snapshot.header.id)
     if (duplicateFirstIds.has(snapshot.header.id)
       || matching?.length !== 1
       || matching[0]?.revision !== snapshot.revision) {
-      return { ...base, workspaceName: resolvedWorkspaceName, eligible: false, reason: 'unstable' }
+      return { ...base, eligible: false, reason: 'unstable' }
     }
-    return { ...base, workspaceName: resolvedWorkspaceName, eligible: true, reason: null }
+    return { ...base, eligible: true, reason: null }
+  }
+
+  private readTitle(snapshot: MemorySessionSnapshot): string | null {
+    try {
+      const projections = this.getProjections()
+      const liveSession = this.agents.get(snapshot.header.id)?.session
+      const cut = liveSession !== undefined
+        ? projections.live?.snapshot(liveSession)
+        : projections.cached?.cachedSnapshot(snapshot.header)
+      const title = cut?.values.title
+      return typeof title === 'string' && title.trim() !== '' && !/[\r\n]/u.test(title) ? title : null
+    } catch {
+      return null
+    }
+  }
+
+  private receiptSummary(
+    snapshot: MemorySessionSnapshot,
+    receipt?: ConsolidationReceipt,
+  ): SessionSummary['latestReceipt'] {
+    if (receipt === undefined) return null
+    return {
+      reviewId: receipt.reviewId,
+      state: receipt.state,
+      attempt: receipt.attempts.at(-1)?.attempt ?? 0,
+      current: receipt.sourceRevision === snapshot.revision,
+      completedAt: receipt.completedAt ?? null,
+    }
   }
 }
 
-function workspaceName(store: MarkdownMemoryStore, cwd?: string): string | null {
-  if (cwd === undefined) return null
+function workspaceReference(
+  store: MarkdownMemoryStore,
+  cwd?: string,
+): ReturnType<MarkdownMemoryStore['workspaceReferenceForCwd']> | undefined {
+  if (cwd === undefined) return
   try {
-    return store.workspaceDisplayNameForCwd(cwd)
+    return store.workspaceReferenceForCwd(cwd)
   } catch {
-    return null
+    return
   }
 }
 

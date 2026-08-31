@@ -1,6 +1,8 @@
 /** Minimal DSH Host service faces consumed by this out-of-tree plugin. */
 
 import type { MemoryRpcResult } from './protocol.ts'
+import type { ConsolidationWorkerAgents, ConsolidationWorkerSessions } from './consolidation-worker.ts'
+import type { MemoryLlmCatalog } from './consolidation-settings.ts'
 
 /** Current Agent identity made available to prompt and tool execution. */
 export interface MemoryAgent {
@@ -50,14 +52,43 @@ export interface MemorySessionSnapshot {
 }
 
 /** Backend-neutral SessionPersistence face used by the candidate catalog. */
-export interface MemorySessionPersistence {
+export interface MemorySessionSnapshotPersistence {
   listSnapshots(signal?: AbortSignal): Promise<MemorySessionSnapshot[]>
+}
+
+/** Client-visible Session projection cut used for zero-log-read list decoration. */
+export interface MemorySessionProjectionSnapshot {
+  readonly values: Readonly<Record<string, unknown>>
+}
+
+/** Live Session projection registry face used by the candidate catalog. */
+export interface MemorySessionProjections {
+  snapshot(session: unknown): MemorySessionProjectionSnapshot
+}
+
+/** Durable cold Session projection cache face used by the candidate catalog. */
+export interface MemorySessionProjectionCache {
+  cachedSnapshot(header: MemorySessionSnapshot['header']): MemorySessionProjectionSnapshot | undefined
+}
+
+/** Immutable logical Session view returned by the persistence service. */
+export interface MemorySessionInspection {
+  readonly meta: MemorySessionSnapshot['header']
+  readonly events: readonly unknown[]
+}
+
+/** Backend-neutral persistence face required by Session consolidation. */
+export interface MemorySessionPersistence extends MemorySessionSnapshotPersistence {
+  inspect(id: string, signal?: AbortSignal): Promise<MemorySessionInspection>
 }
 
 /** Live Agent lookup used to exclude sessions that are still running. */
 export interface MemoryAgentRegistry {
-  get(id: string): unknown | undefined
+  get(id: string): { readonly session?: unknown } | undefined
 }
+
+/** Agent registry face shared by candidate discovery and the consolidation worker. */
+export type MemoryConsolidationAgents = MemoryAgentRegistry & ConsolidationWorkerAgents
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -66,6 +97,10 @@ declare module '@deepseek-ai/cordis' {
     tools: MemoryToolRegistry
     connection: MemoryHostConnection
     sessionPersistence: MemorySessionPersistence
-    agents: MemoryAgentRegistry
+    agents: MemoryConsolidationAgents
+    sessions: ConsolidationWorkerSessions
+    llm: MemoryLlmCatalog
+    sessionProjections: MemorySessionProjections
+    sessionProjectionCache: MemorySessionProjectionCache
   }
 }

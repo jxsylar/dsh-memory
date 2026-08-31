@@ -30,6 +30,9 @@
 ```text
 $DSH_HOME/memory/
 ├── GLOBAL.md
+├── settings.yml
+├── debug/
+│   └── <review-id>/attempt-<n>.jsonl
 ├── workspaces/
 │   └── <workspace-key>/
 │       ├── MEMORY.md
@@ -122,11 +125,11 @@ Agent 可以在以下情况调用 `memory_update`：
 
 工具不接受 root、path、cwd、Workspace key 或任意 Workspace id。Workspace scope 来自执行 Agent 的 Session cwd。每次 mutation 携带 opaque expected revision；冲突时拒绝覆盖并要求调用方重新读取。
 
-`MemoryStore` 是唯一写入口，负责格式校验、scope lock、revision 比较、原子发布和索引重建。UI 与未来 Session Consolidator 复用相同能力。
+`MemoryStore` 是唯一写入口，负责格式校验、scope lock、revision 比较、原子发布和索引重建。UI 与 Session Consolidator 复用相同能力。
 
 ## 7. Session 整理
 
-Session 整理是第一版尚未实现的核心闭环。它的目标是从一个已经持久化、当前不 live 且带合法 cwd 的 Session 中生成当前 Workspace 的候选变化。
+Session 整理是第一版核心闭环。它的目标是从一个已经持久化、当前不 live 且带合法 cwd 的 Session 中生成当前 Workspace 的候选变化。
 
 流程：
 
@@ -134,7 +137,7 @@ Session 整理是第一版尚未实现的核心闭环。它的目标是从一个
 用户选择稳定 Session
   -> SessionPersistence 获取后端无关 snapshot/revision
   -> 再次确认 Session 不 live 且 revision 未变化
-  -> 读取完整逻辑事件与当前 Workspace generation
+  -> 读取完整逻辑事件，确定性投影为 turn evidence，并读取当前 Workspace generation
   -> 受限 Consolidator Agent 生成 put/delete/no-change proposal
   -> Host 校验 proposal、source revision 和 Workspace revision
   -> MemoryStore 原子提交全部变化
@@ -147,13 +150,17 @@ Session 整理是第一版尚未实现的核心闭环。它的目标是从一个
 - 单个 Workspace Session 不能直接修改 Global；
 - 模型只提出结构化变化，Host 负责确定性校验和提交；
 - 失败、取消、非法输出或冲突都不能产生部分写入；
-- 不静默截断过长 Session；Provider 拒绝时记录失败；
+- 完整逻辑事件保留在 Host；模型只接收可回放的 turn evidence，不接收请求元数据、流式片段或工具正文；
+- 不静默截断过长输入；筛选后的动态输入超过显式上限时记录 `evidence-too-large`；
 - 同一 source session revision 与 consolidator version 的成功结果具有稳定 review id，重复执行不再次调用模型；
 - 整理输入和输出保存在独立 worker Session 中，保证模型可见过程可回放。
+- 若旧 review 停在 commit barrier，即使 source revision 已增长，也先恢复或收敛旧事务，再由下一次显式触发处理新 revision。
 
 Receipt 位于 `reviews/<review-id>.md`，记录来源 Session、source revision、Workspace、覆盖 seq、worker Session、状态、提交前后 revision 和实际变化，不复制完整对话或详细记忆正文。
 
 第一版只提供 UI 手动触发。自动 idle、周期任务、批处理和重试以后调用同一个 `SessionConsolidator`，不另建一套整理逻辑。
+
+完整阶段、proposal schema、worker 能力边界、receipt 状态机、崩溃恢复和待讨论问题集中维护在 [session-consolidation.md](session-consolidation.md)。本文只保留不随实现细节变化的产品规则。
 
 ## 8. UI 与 Host API
 
@@ -163,7 +170,8 @@ Memory 是 DSH Settings 中独立 section，包含：
 |---|---|
 | Global | 编辑完整 `GLOBAL.md`，使用 revision 保存 |
 | Workspaces | 浏览 Workspace、索引和详细记录，批量提交 mutation |
-| Sessions | 选择稳定 Session、触发整理并查看 receipt |
+| Sessions | 先选择 Workspace，再按标题浏览稳定 Session、触发整理并查看 receipt |
+| Model | 从 DSH 已激活的文本模型中选择整理模型；凭据仍由 DSH 管理 |
 | Status | 展示 root、字节统计、错误和最近操作状态 |
 
 Browser 与 Host 是两个 Cordis tree。Browser 只能通过 `/memory` loopback Connection RPC 使用受校验的业务值，不能直接访问 Host `ctx`、文件系统、`MemoryStore` 或 `SessionPersistence`。
@@ -177,8 +185,11 @@ Browser 与 Host 是两个 Cordis tree。Browser 只能通过 `/memory` loopback
 | `workspaces/list` | Workspace 摘要列表 |
 | `workspace/read` / `workspace/commit` | 读取和批量提交一个 Workspace |
 | `sessions/list` / `sessions/consolidate` | 列出可整理 Session并触发一次整理 |
+| `models/read` / `models/select` | 投影 DSH 活跃模型目录，并以 CAS 保存整理模型 |
 
 Host 与 Browser 都必须解析 wire value。Browser 只提交 opaque Workspace id 或 Session id，Host 解析权威 scope。v0.1 不轮询也不推送 memory-change；用户打开页面、切换页面、完成操作或点击 Refresh 时重新读取。
+
+Session 标题是 DSH Session 日志中最新 `session/title` 事件的派生视图，不从普通 user/assistant message 猜测。列表只读取实时或持久化投影，不为标题加载完整历史；没有可用投影时显示“未命名会话”。Workspace 导航以 opaque id 区分同名目录，并把无法安全解析归属的 Session 留在“未归属”分组中。
 
 ## 9. 合并、访问与淘汰
 
@@ -211,4 +222,6 @@ Host 与 Browser 都必须解析 wire value。Browser 只提交 opaque Workspace
 
 第一版不为 Global、单条 Workspace 记忆或索引预设未经实测的字节预算。Host 统计 UTF-8 字节供观察，但不静默裁剪。
 
-模型整理只保留防止任务无限运行的显式配置：输出 token 上限和端到端超时。真实使用一段时间后，再根据分布决定 hot context、单文件或 review 输入预算。
+模型整理使用独立的显式 provider、model、输出 token 上限和端到端超时，不继承当前 Agent 的模型路由。用户从 DSH 已激活的文本模型中选择路由，API key 与 Provider 激活仍由 DSH 管理；插件只在 `settings.yml` 保存 provider/model，不保存凭据。
+
+`settings.yml` 与 `debug/` 是插件配置和运维派生数据，不是权威记忆，也不进入模型上下文。每次整理 attempt 的 JSONL 日志记录阶段、错误链和 stack，但不复制 Session evidence、memory/proposal 正文或凭据。真实使用一段时间后，再根据分布决定 hot context、单文件或 review 输入预算。

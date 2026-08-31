@@ -59,6 +59,9 @@ describe('Host Cordis composition', () => {
       },
     })
     ctx.provide('sessionPersistence', {
+      async inspect(id: string) {
+        return { meta: { id, createdAt: id === 'session-eligible' ? 2 : 1, cwd: '/work/plugin-rpc' }, events: [] }
+      },
       async listSnapshots() {
         return [
           { header: { id: 'session-eligible', createdAt: 2, cwd: '/work/plugin-rpc' }, revision: 'source:a' },
@@ -66,7 +69,30 @@ describe('Host Cordis composition', () => {
         ]
       },
     })
-    ctx.provide('agents', { get(id: string) { return id === 'session-live' ? {} : undefined } })
+    const liveSession = { id: 'session-live' }
+    ctx.provide('agents', { get(id: string) { return id === 'session-live' ? { session: liveSession } : undefined } })
+    ctx.provide('sessions', { async flush() { return true } })
+    ctx.provide('sessionProjections', {
+      snapshot(session: unknown) {
+        expect(session).toBe(liveSession)
+        return { values: { title: 'Live memory review' } }
+      },
+    })
+    ctx.provide('sessionProjectionCache', {
+      cachedSnapshot(header: { id: string }) {
+        expect(header.id).toBe('session-eligible')
+        return { values: { title: 'Eligible memory review' } }
+      },
+    })
+    ctx.provide('llm', {
+      listProviders() { return [{ id: 'deepseek-official', name: 'DeepSeek' }] },
+      async listModels(provider: string) {
+        return [
+          { provider, id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', inputModalities: ['text'] },
+          { provider, id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', inputModalities: ['text'] },
+        ]
+      },
+    })
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
     expect(sections).toHaveLength(1)
@@ -126,10 +152,39 @@ describe('Host Cordis composition', () => {
       value: {
         available: true,
         sessions: [
-          { sessionId: 'session-eligible', eligible: true },
-          { sessionId: 'session-live', eligible: false, reason: 'live' },
+          { sessionId: 'session-eligible', title: 'Eligible memory review', eligible: true },
+          { sessionId: 'session-live', title: 'Live memory review', eligible: false, reason: 'live' },
         ],
       },
+    })
+    const models = await rpcHandler?.('models/read', {}, signal)
+    expect(models).toMatchObject({
+      ok: true,
+      value: {
+        selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        providers: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-flash' }, { id: 'deepseek-v4-pro' }] }],
+      },
+    })
+    if (models?.ok !== true) throw new Error('expected model catalog response')
+    const modelRevision = (models.value as { revision: string }).revision
+    expect(await rpcHandler?.('models/select', {
+      expectedRevision: modelRevision,
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-pro',
+    }, signal)).toMatchObject({ ok: true, value: { status: 'committed' } })
+    expect(await rpcHandler?.('models/select', {
+      expectedRevision: modelRevision,
+      provider: 'unknown',
+      model: 'unknown',
+    }, signal)).toMatchObject({ ok: false, error: { code: 'bad-request' } })
+    expect(await rpcHandler?.('sessions/consolidate', { sessionId: 'session-eligible' }, signal))
+      .toMatchObject({ ok: true, value: { status: 'no-change', recovered: false, attempt: 1, changeCount: 0 } })
+    expect(await rpcHandler?.('sessions/list', {}, signal)).toMatchObject({
+      ok: true,
+      value: { sessions: [
+        { sessionId: 'session-eligible', latestReceipt: { state: 'no-change', current: true } },
+        { sessionId: 'session-live', latestReceipt: null },
+      ] },
     })
     expect(await rpcHandler?.('workspace/read', { workspaceId, cwd: '/work/plugin-rpc' }, signal))
       .toMatchObject({ ok: false, error: { code: 'bad-request' } })

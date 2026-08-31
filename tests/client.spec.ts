@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { apply, inject, type BrowserContext } from '../src/client/index.ts'
 import {
   buildWorkspaceChanges,
+  groupSessionsByWorkspace,
   memoryButtonDisabledStyle,
   memoryButtonHoverStyles,
   memoryButtonPressedStyle,
@@ -10,6 +11,7 @@ import {
   type WorkspaceDraftRecord,
 } from '../src/client/MemorySection.tsx'
 import { en, zh } from '../src/client/locales.ts'
+import type { SessionSummary, WorkspaceId } from '../src/protocol.ts'
 
 describe('Browser locale integration', () => {
   it('registers balanced dictionaries and follows the active DSH locale', () => {
@@ -138,12 +140,37 @@ describe('Memory Workspace Browser API', () => {
             if (endpoint === 'sessions/list') {
               return { ok: true, value: { available: true, sessions: [{
                 sessionId: 'session-browser',
+                title: 'Browser contract',
                 createdAt: 100,
+                workspaceId,
                 workspaceName: 'dsh-memory',
                 eligible: false,
                 reason: 'live',
                 latestReceipt: null,
               }] } }
+            }
+            if (endpoint === 'sessions/consolidate') {
+              return { ok: true, value: {
+                status: 'no-change',
+                recovered: false,
+                reviewId: `review-${'a'.repeat(64)}`,
+                attempt: 1,
+                changeCount: 0,
+              } }
+            }
+            if (endpoint === 'models/read') {
+              return { ok: true, value: {
+                available: true,
+                selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+                revision: 'sha256:models',
+                providers: [{ id: 'deepseek-official', name: 'DeepSeek', models: [{
+                  id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash',
+                }] }],
+                failures: [],
+              } }
+            }
+            if (endpoint === 'models/select') {
+              return { ok: true, value: { status: 'committed', revision: 'sha256:selected' } }
             }
             throw new Error(`unexpected endpoint: ${endpoint}`)
           },
@@ -176,6 +203,15 @@ describe('Memory Workspace Browser API', () => {
       available: true,
       sessions: [{ sessionId: 'session-browser', reason: 'live' }],
     })
+    await expect(api.consolidateSession('session-browser')).resolves.toMatchObject({
+      status: 'no-change',
+      attempt: 1,
+    })
+    const models = await api.readModels()
+    expect(models).toMatchObject({ selection: { provider: 'deepseek-official' } })
+    await expect(api.selectModel({
+      expectedRevision: models.revision, provider: 'deepseek-official', model: 'deepseek-v4-flash',
+    })).resolves.toEqual({ status: 'committed', revision: 'sha256:selected' })
     expect(calls).toEqual([
       { endpoint: 'workspaces/list', payload: {} },
       { endpoint: 'workspace/read', payload: { workspaceId } },
@@ -188,6 +224,44 @@ describe('Memory Workspace Browser API', () => {
         },
       },
       { endpoint: 'sessions/list', payload: {} },
+      { endpoint: 'sessions/consolidate', payload: { sessionId: 'session-browser' } },
+      { endpoint: 'models/read', payload: {} },
+      {
+        endpoint: 'models/select',
+        payload: { expectedRevision: 'sha256:models', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      },
+    ])
+  })
+})
+
+describe('Session Workspace grouping', () => {
+  it('groups by opaque Workspace id, keeps duplicate display names separate, and puts unassigned last', () => {
+    const first = `workspace:${'1'.repeat(64)}` as WorkspaceId
+    const second = `workspace:${'2'.repeat(64)}` as WorkspaceId
+    const base = {
+      title: null,
+      latestReceipt: null,
+      eligible: true as const,
+      reason: null,
+    }
+    const sessions: SessionSummary[] = [
+      { ...base, sessionId: 'newer', createdAt: 3, workspaceId: second, workspaceName: 'project' },
+      { ...base, sessionId: 'older', createdAt: 2, workspaceId: first, workspaceName: 'project' },
+      {
+        ...base,
+        sessionId: 'unassigned',
+        createdAt: 1,
+        workspaceId: null,
+        workspaceName: null,
+        eligible: false,
+        reason: 'missing-cwd',
+      },
+    ]
+    const groups = groupSessionsByWorkspace(sessions)
+    expect(groups.map(group => [group.key, group.sessions.map(session => session.sessionId)])).toEqual([
+      [first, ['older']],
+      [second, ['newer']],
+      ['unassigned', ['unassigned']],
     ])
   })
 })
