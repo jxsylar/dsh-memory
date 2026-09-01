@@ -72,18 +72,40 @@ Host entry 受 Node ESM module cache 影响，修改后必须重启 Web。Client
 
 ## 发布
 
-发布前运行：
+`.github/workflows/ci.yml` 会在 pull request 和 `main` 更新时运行 `pnpm run check`。npm 发布由 `.github/workflows/publish.yml` 负责，只在推送与 `package.json#version` 完全一致的 `v*` tag 时触发；tag 所指提交还必须属于 `main`。
+
+### 首次配置 Trusted Publishing
+
+在 npm 的 `@hr98w/dsh-memory` Package Settings → Trusted Publisher 中选择 GitHub Actions，并填写：
+
+- Organization or user：`hr98w`；
+- Repository：`dsh-memory`；
+- Workflow filename：`publish.yml`；
+- Allowed action：`npm publish`；
+- Environment：留空。
+
+工作流使用 OIDC 短期凭据，不需要配置 `NPM_TOKEN`。确认首次自动发布成功后，可在 npm Publishing access 中禁止传统 token 发布，并撤销不再使用的 automation token。
+
+### 发布新版本
+
+发布前更新 `package.json#version`，并在本地运行：
 
 ```sh
 npm pack --dry-run
 pnpm run check
 ```
 
-检查 tarball 只包含 `package.json#files` 声明的构建产物、Bundle patch、公开文档和图片。确认没有 `.env`、测试 fixture、Session 或实际 memory 数据。然后在 npm 账号启用 2FA/可信发布流程，并发布 scoped public package：
+检查 tarball 只包含 `package.json#files` 声明的构建产物、Bundle patch、公开文档和图片，且没有 `.env`、测试 fixture、Session 或实际 memory 数据。随后提交版本变化并创建完全匹配的 tag，例如：
 
 ```sh
-npm publish --access public
+git add package.json
+git commit -m "chore: release v0.1.1"
+git tag v0.1.1
+git push origin main
+git push origin v0.1.1
 ```
+
+最后一次 push 会触发自动发布。`npm publish` 会执行仓库现有的 `prepack`，因此远端会再次运行 `pnpm run check`；npm Trusted Publishing 会自动为公开仓库中的公开包生成 provenance。
 
 未被明确要求时，不执行 publish、push 或创建远程仓库。
 
