@@ -33,7 +33,7 @@ Agent step                         Web Browser
 | `src/memory-store.ts` | Markdown Provider；格式校验、revision、CAS、scope lock、原子发布和索引重建 |
 | `src/protocol.ts` | Host/Browser 共用的 wire 类型和双侧运行时解析 |
 | `src/client/index.ts` | Browser Cordis entry；注册中英文字典与 `settings.section`，并封装 `/memory` Client |
-| `src/session-catalog.ts` | 基于 SessionPersistence snapshot 与 live Agent registry 的只读资格投影 |
+| `src/session-catalog.ts` | 基于 SessionPersistence snapshot、live Agent registry 与可选 DSH 归档状态的只读资格投影 |
 | `src/consolidation-identity.ts` | review 与内部 worker Session 的稳定身份格式 |
 | `src/session-consolidator.ts` | M3 Host 核心；冻结稳定 Session 逻辑事件与目标 Workspace generation |
 | `src/consolidation-proposal.ts` | M3 proposal 的封闭解析、evidence 校验、规范化与 Workspace preview |
@@ -117,7 +117,7 @@ Memory Settings
 
 Workspace 编辑先保留在 Browser 草稿中。保存时 Browser 根据已读取 generation 构造确定性的 delete-then-put batch，并连同 expected revision 一次提交；Host 双重解析后重新通过 opaque id 解析目录，再调用 `MemoryStore` 做 CAS 和完整 generation 发布。冲突只返回当前 revision，不覆盖或清除 Browser 草稿。
 
-Session 列表连续调用两次 `SessionPersistence.listSnapshots()`，以 source-qualified revision 判断观察期间是否稳定，再通过 live Agent registry 否决正在运行的 Session，并使用 `MemoryStore` 的 cwd 规则投影 opaque Workspace id 与显示名。内部 `session-memory-review-…-attempt-…` worker id 和 cwd 属于 `$DSH_HOME/memory/consolidator-workspace` 的全部 Session 都在分类前排除，因此 `Memory Consolidation` Workspace 不会进入 Browser 分组，也不能递归成为整理来源；`SessionConsolidator.prepare()` 重复执行同一 cwd 拒绝，防止绕过列表直接调用 endpoint。标题来自 DSH 日志中的最新 `session/title` 事件：live Session 读取 `sessionProjections.snapshot()`，cold Session 读取 identity-checked `sessionProjectionCache.cachedSnapshot()`；缓存缺失或异常时降级为无标题。列表不扫描 JSONL、不读取完整事件，也不调用模型；它附带最新 receipt 的浏览器安全摘要，并区分该 receipt 是否属于当前 source revision。Browser 按 opaque Workspace id 分组，保留无 cwd 或不可解析条目的“未归属”分组，不按可能重名的显示名合并。若相关 Host 服务不存在，`sessions/list` 返回显式 unavailable 状态，Headless 组合仍可加载。
+Session 列表连续调用两次 `SessionPersistence.listSnapshots()`，以 source-qualified revision 判断观察期间是否稳定，再通过 live Agent registry 否决正在运行的 Session，并使用 `MemoryStore` 的 cwd 规则投影 opaque Workspace id 与显示名。内部 `session-memory-review-…-attempt-…` worker id、cwd 属于 `$DSH_HOME/memory/consolidator-workspace` 的全部 Session，以及可选 `WorkspaceRegistry` 标记的归档 Session 都在分类前排除，因此不会进入 Browser 分组或成为整理来源；`SessionConsolidator.prepare()` 在完整历史读取前重复执行内部 cwd 与归档拒绝，稳定重观察后和 commit barrier 前再次检查归档状态，防止绕过列表直接调用 endpoint。DSH 归档只隐藏 Session，不删除其持久化文件；没有 `WorkspaceRegistry` 的 Headless 组合继续使用原有的持久化与 live 判断。标题来自 DSH 日志中的最新 `session/title` 事件：live Session 读取 `sessionProjections.snapshot()`，cold Session 读取 identity-checked `sessionProjectionCache.cachedSnapshot()`；缓存缺失或异常时降级为无标题。列表不扫描 JSONL、不读取完整事件，也不调用模型；它附带最新 receipt 的浏览器安全摘要，并区分该 receipt 是否属于当前 source revision。Browser 将当前 revision 上的 `committed` 或 `no-change` 投影为“已整理”并禁用整理按钮；失败 receipt 或新增对话后的旧 receipt 仍允许显式重试。Browser 按 opaque Workspace id 分组，保留无 cwd 或不可解析条目的“未归属”分组，不按可能重名的显示名合并。若相关 Host 服务不存在，`sessions/list` 返回显式 unavailable 状态，Headless 组合仍可加载。
 
 `sessions/consolidate` 只接受 Session id，并同步等待一次显式 attempt。Host 在明确注入 `sessionPersistence`、`agents`、`sessions`、`systemPrompt`、`tools` 和 `llm` 的可选 child fiber 中组装 consolidator、受限 worker、receipt store、replay 与 runner；服务缺失时 endpoint 明确不可用，不影响其他 Consumers。响应仅返回终态、恢复标记、review id、attempt 和变化数量，不暴露模型路由、cwd、Workspace key 或 revision。Browser 双重解析响应，完成后刷新列表，因此同 revision 的终态 receipt 和后续新增对话形成的新 revision 都能被识别。
 

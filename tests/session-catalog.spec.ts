@@ -89,6 +89,18 @@ describe('Session candidate catalog', () => {
     })
   })
 
+  it('omits archived Sessions instead of presenting them as disabled candidates', async () => {
+    const active = snapshot('active', 'source:a', 2, '/work/project-alpha')
+    const archived = snapshot('archived', 'source:b', 1, '/work/project-alpha')
+    const catalog = new SessionCatalog(store(), {
+      async listSnapshots() { return [active, archived] },
+    }, { get() { return undefined } }, undefined, undefined, undefined, id => id === 'archived')
+
+    await expect(catalog.list()).resolves.toMatchObject({
+      sessions: [{ sessionId: 'active' }],
+    })
+  })
+
   it('reads live and cold titles from projection cuts without loading Session logs', async () => {
     const memory = store()
     const live = snapshot('live', 'source:a', 2, '/work/project-alpha')

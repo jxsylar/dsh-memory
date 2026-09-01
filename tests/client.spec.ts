@@ -8,6 +8,7 @@ import {
   memoryButtonHoverStyles,
   memoryButtonPressedStyle,
   memorySectionStyles,
+  sessionIsConsolidated,
   workspaceDraftIssue,
   type WorkspaceDraftRecord,
 } from '../src/client/MemorySection.tsx'
@@ -73,6 +74,60 @@ describe('Session presentation', () => {
   it('formats creation timestamps without seconds or wire-format timezone syntax', () => {
     const createdAt = new Date(2026, 7, 30, 16, 50, 2, 136).getTime()
     expect(formatSessionCreatedAt(createdAt)).toBe('2026-08-30 16:50')
+  })
+
+  it('locks only a current successful consolidation result', () => {
+    const base: SessionSummary = {
+      sessionId: 'session-reviewed',
+      title: 'Reviewed Session',
+      createdAt: 1,
+      workspaceId: `workspace:${'1'.repeat(64)}` as WorkspaceId,
+      workspaceName: 'project',
+      eligible: true,
+      reason: null,
+      latestReceipt: null,
+    }
+    const receipt = {
+      reviewId: `review-${'a'.repeat(64)}`,
+      attempt: 1,
+      current: true,
+      completedAt: '2026-09-01T00:00:00.000Z',
+    }
+
+    expect(sessionIsConsolidated({ ...base, latestReceipt: { ...receipt, state: 'committed' } })).toBe(true)
+    expect(sessionIsConsolidated({ ...base, latestReceipt: { ...receipt, state: 'no-change' } })).toBe(true)
+    expect(sessionIsConsolidated({ ...base, latestReceipt: { ...receipt, state: 'provider-failed' } })).toBe(false)
+    expect(sessionIsConsolidated({
+      ...base,
+      latestReceipt: { ...receipt, state: 'committed', current: false },
+    })).toBe(false)
+    expect(sessionIsConsolidated({
+      ...base,
+      eligible: false,
+      reason: 'live',
+      latestReceipt: { ...receipt, state: 'committed' },
+    })).toBe(false)
+  })
+
+  it('keeps status badges compact and distinguishes actionable from completed', () => {
+    const eligible = memorySectionStyles.eligibleBadge
+    const consolidated = memorySectionStyles.consolidatedBadge
+    expect(eligible).toBeDefined()
+    expect(consolidated).toBeDefined()
+    expect(eligible).toMatchObject({
+      width: 'fit-content',
+      alignSelf: 'flex-start',
+      whiteSpace: 'nowrap',
+      padding: '2px 6px',
+    })
+    expect(consolidated).toMatchObject({
+      width: 'fit-content',
+      alignSelf: 'flex-start',
+      whiteSpace: 'nowrap',
+      padding: '2px 6px',
+    })
+    expect(eligible?.background).not.toBe(consolidated?.background)
+    expect(eligible?.color).not.toBe(consolidated?.color)
   })
 })
 

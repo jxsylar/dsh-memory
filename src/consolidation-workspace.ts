@@ -25,8 +25,13 @@ export interface MemoryWorkspace {
   attachSession(sessionId: SessionId): Promise<void>
 }
 
-export interface MemoryWorkspaceRegistry {
+export interface MemoryWorkspaceCreator {
   create(path: string, title?: string): Promise<MemoryWorkspace>
+}
+
+/** DSH registry capabilities shared by worker placement and Session archive filtering. */
+export interface MemoryWorkspaceRegistry extends MemoryWorkspaceCreator {
+  readonly archivedSessionIds: readonly string[]
 }
 
 export interface PreparedConsolidationWorkspace {
@@ -42,7 +47,7 @@ export interface ConsolidationWorkspacePlacement {
 export class DedicatedConsolidationWorkspace implements ConsolidationWorkspacePlacement {
   constructor(
     readonly directory: string,
-    private readonly getRegistry: () => MemoryWorkspaceRegistry | undefined = () => undefined,
+    private readonly getRegistry: () => MemoryWorkspaceCreator | undefined = () => undefined,
   ) {}
 
   async prepare(): Promise<PreparedConsolidationWorkspace> {

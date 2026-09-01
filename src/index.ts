@@ -116,6 +116,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   )
   const excludesConsolidationWorkspace = (cwd: string | undefined): boolean =>
     isConsolidationWorkspaceCwd(cwd, workerWorkspace.directory)
+  const isArchivedSession = (sessionId: string): boolean =>
+    workspaceRegistry?.archivedSessionIds.includes(sessionId) ?? false
   const debug = new ConsolidationDebugStore(
     join(store.root, 'debug'),
     () => new Date(),
@@ -163,6 +165,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           ...(sessionProjectionCache === undefined ? {} : { cached: sessionProjectionCache }),
         }),
         excludesConsolidationWorkspace,
+        isArchivedSession,
       )
       sessionCatalog = catalog
       return () => {
@@ -197,6 +200,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         sessionCtx.agents,
         undefined,
         excludesConsolidationWorkspace,
+        isArchivedSession,
       )
       const selection = consolidationSettings.read().selection
       const worker = new SessionConsolidationWorker(

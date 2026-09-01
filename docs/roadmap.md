@@ -44,7 +44,7 @@
 1. [完成] 可选注入 `sessionPersistence` 与 live Agent registry；
 2. [完成] 通过后端无关 `listSnapshots()` 连续观察两次 snapshot；
 3. [完成] 排除 live、无 cwd、不属于可解析 Workspace 或 revision 不稳定的 Session；
-4. [完成] `sessions/list` 返回可整理状态、原因、最新 receipt、opaque Workspace 归属和 DSH 标题投影，并整体排除内部整理 Workspace；
+4. [完成] `sessions/list` 返回可整理状态、原因、最新 receipt、opaque Workspace 归属和 DSH 标题投影，并整体排除已归档 Session 与内部整理 Workspace；
 5. [完成] Sessions UI 先选择 Workspace，再按标题展示列表、归属与禁用原因，并已通过真实 Web 使用验证；
 6. [完成] 单元、组合测试与真实 Web 列表、Workspace 导航、标题展示验证已完成。
 

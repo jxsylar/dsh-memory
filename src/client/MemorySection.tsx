@@ -78,6 +78,12 @@ export function formatSessionCreatedAt(createdAt: number): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+/** Whether the current stable Session revision already has a successful terminal review. */
+export function sessionIsConsolidated(session: SessionSummary): boolean {
+  if (!session.eligible || session.latestReceipt?.current !== true) return false
+  return session.latestReceipt.state === 'committed' || session.latestReceipt.state === 'no-change'
+}
+
 const UNASSIGNED_SESSION_WORKSPACE = 'unassigned'
 
 let workspaceDraftSequence = 0
@@ -719,8 +725,16 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
                             <strong style={memorySectionStyles.sessionTitle}>{session.title ?? t('sessionUntitled')}</strong>
                             <small style={{ ...memorySectionStyles.sessionId, ...memorySectionStyles.muted }}>{session.sessionId}</small>
                           </div>
-                          <span style={session.eligible ? memorySectionStyles.eligibleBadge : memorySectionStyles.ineligibleBadge}>
-                            {session.eligible ? t('sessionEligible') : t(sessionReasonKey(session.reason))}
+                          <span style={sessionIsConsolidated(session)
+                            ? memorySectionStyles.consolidatedBadge
+                            : session.eligible
+                              ? memorySectionStyles.eligibleBadge
+                              : memorySectionStyles.ineligibleBadge}>
+                            {sessionIsConsolidated(session)
+                              ? t('sessionConsolidated')
+                              : session.eligible
+                                ? t('sessionEligible')
+                                : t(sessionReasonKey(session.reason))}
                           </span>
                         </header>
                         <div style={memorySectionStyles.sessionMeta}>
@@ -757,7 +771,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
                             <MemoryButton
                               variant="primary"
                               style={memorySectionStyles.primaryButton}
-                              disabled={consolidatingSessionId !== undefined}
+                              disabled={consolidatingSessionId !== undefined || sessionIsConsolidated(session)}
                               onClick={() => { void consolidateSession(session.sessionId) }}
                             >
                               {consolidatingSessionId === session.sessionId ? t('sessionConsolidating') : t('sessionConsolidate')}
@@ -890,8 +904,9 @@ export const memorySectionStyles: Record<string, React.CSSProperties> = {
   sessionTitle: { minWidth: 0, overflowWrap: 'anywhere' },
   sessionId: { minWidth: 0, overflowWrap: 'anywhere' },
   sessionMeta: { display: 'flex', flexWrap: 'wrap', gap: '6px 18px', minWidth: 0, opacity: 0.72, fontSize: 13 },
-  eligibleBadge: { padding: '3px 8px', borderRadius: 999, background: 'rgba(45,160,90,0.18)', color: '#2a9d58', fontSize: 12, fontWeight: 600 },
-  ineligibleBadge: { padding: '3px 8px', borderRadius: 999, background: 'rgba(127,127,127,0.16)', color: 'inherit', opacity: 0.76, fontSize: 12 },
+  eligibleBadge: { width: 'fit-content', alignSelf: 'flex-start', whiteSpace: 'nowrap', padding: '2px 6px', borderRadius: 999, background: 'rgba(91,91,214,0.14)', color: '#6868e8', lineHeight: 1.4, fontSize: 12, fontWeight: 600 },
+  consolidatedBadge: { width: 'fit-content', alignSelf: 'flex-start', whiteSpace: 'nowrap', padding: '2px 6px', borderRadius: 999, background: 'rgba(45,160,90,0.16)', color: '#2a9d58', lineHeight: 1.4, fontSize: 12, fontWeight: 600 },
+  ineligibleBadge: { width: 'fit-content', alignSelf: 'flex-start', whiteSpace: 'nowrap', padding: '2px 6px', borderRadius: 999, background: 'rgba(127,127,127,0.13)', color: 'inherit', opacity: 0.76, lineHeight: 1.4, fontSize: 12 },
   sessionResult: { margin: 0, padding: 10, borderRadius: 8, background: 'rgba(45,160,90,0.12)', overflowWrap: 'anywhere' },
   debugPath: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' },
   modelPanel: { display: 'grid', gap: 16, width: '100%', maxWidth: 720, minWidth: 0 },

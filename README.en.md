@@ -1,0 +1,159 @@
+<p align="center">
+  <img src="docs/assets/dsh-memory-logo.png" alt="dsh-memory logo" width="180" />
+</p>
+
+<h1 align="center">dsh-memory</h1>
+
+<p align="center">
+  Markdown-based long-term memory for DeepSeek Harness, layered across Global and Workspace scopes with progressive disclosure.
+</p>
+
+<p align="center">
+  <a href="README.md">中文</a> · English
+</p>
+
+<p align="center">
+  <img src="https://badgen.net/badge/license/MIT/green" alt="MIT license" />
+  <img src="https://badgen.net/badge/format/DSH%20bundle/8257D0" alt="DSH bundle" />
+</p>
+
+<div align="center">
+
+[Capabilities](#core-capabilities) · [Installation](#installation) · [Getting started](#getting-started) · [Data and privacy](#data-and-privacy) · [Documentation](#documentation)
+
+</div>
+
+## Why dsh-memory
+
+Once a Session ends, an Agent can easily lose user preferences, project constraints, and lessons that were already verified. `dsh-memory` keeps this long-term information in readable Markdown files on the user's machine. Later requests receive only Global memory and the current Workspace index.
+
+It does not require an external memory database or dedicated memory service, nor does it put every historical conversation back into context. The Agent sees a small index first and uses DSH's existing file tools to open only the relevant detailed memories.
+
+## Core capabilities
+
+| Capability | Description |
+|---|---|
+| Local Markdown | Authoritative memory lives under `$DSH_HOME/memory` and can be read or backed up directly |
+| Global / Workspace isolation | Global stores cross-project preferences; project facts stay in the current Workspace |
+| Progressive recall | Global memory and the current Workspace index are injected automatically; details are opened on demand |
+| Safe writes | The Agent and Web UI use the same write path and refuse to overwrite concurrent changes |
+| Session consolidation | Candidate long-term memories are extracted from finished, stable DSH Sessions and written only after validation |
+| Observability | Every review keeps a result record; optional Debug logs capture stages and error chains without copying conversation bodies or credentials |
+| Bilingual UI | The Memory pages follow the Chinese or English locale selected by DSH Web |
+
+## How it works
+
+```text
+Agent request
+  └─ Global memory + current Workspace MEMORY.md
+       └─ Agent searches detailed Markdown on demand
+
+Finished DSH Session
+  └─ User starts consolidation
+       └─ Dedicated consolidation Agent proposes memory changes
+            └─ Host validates evidence, memory scope, and data versions
+                 └─ MemoryStore writes atomically and records the result
+```
+
+The model only proposes memory changes. Deterministic Host code owns memory scope resolution, content validation, version checks, and the final write.
+
+## Interface
+
+Memory appears as a dedicated section in DSH Settings:
+
+| Page | Purpose |
+|---|---|
+| Global Memory | Read and edit `GLOBAL.md`, which is available across Workspaces |
+| Workspace Memory | Browse, create, update, and delete project-specific memories |
+| Session Consolidation | Browse stable Sessions by Workspace, run a review, and inspect the latest result |
+| Settings | Select an active DSH text model for consolidation and optionally enable Debug logs |
+
+![dsh-memory Settings page](docs/assets/memory-settings.png)
+
+## Installation
+
+### Requirements
+
+- DeepSeek Harness installed and a working `dsh web` command.
+- Building from source also requires Node.js `^22.19.0 || >=24.0.0` and pnpm.
+
+### Install from npm
+
+Install from npm:
+
+```sh
+dsh plugin --profile web add @hr98w/dsh-memory
+```
+
+Restart `dsh web` completely after installation.
+
+### Install from source
+
+After cloning the repository, run these commands from its root:
+
+```sh
+pnpm install
+pnpm run build
+dsh plugin --profile web add .
+```
+
+Then restart `dsh web` completely. Bundle composition and the Host ESM entry are loaded at process startup; refreshing the Browser does not apply Host code changes.
+
+## Getting started
+
+1. Configure and activate at least one text model in DSH Models. API keys remain under DSH ownership.
+2. Open Settings → Memory → Settings and select the provider/model used for Session consolidation.
+3. Use Global Memory for cross-project preferences and Workspace Memory for project facts and constraints.
+4. Select a finished, stable Session under Session Consolidation and start a review.
+5. Inspect the result. If troubleshooting is necessary, enable Debug in Settings before running another attempt.
+
+## Data and privacy
+
+Default layout:
+
+```text
+$DSH_HOME/memory/
+├── GLOBAL.md
+├── settings.yml
+├── consolidator-workspace/             # dedicated cwd for internal review Sessions
+├── debug/<review-id>/attempt-<n>.jsonl # written only when Debug is enabled
+├── reviews/<review-id>.md
+└── workspaces/<workspace-key>/
+    ├── MEMORY.md                        # generated index
+    └── <memory-name>.md                 # authoritative detailed memory
+```
+
+- Web management APIs are available only to the local machine;
+- the Web page never receives the memory root, absolute paths, cwd, or internal Workspace keys;
+- Debug is off by default and does not record conversation evidence, memory/model proposal bodies, or API keys;
+- `MEMORY.md` is a rebuildable index; detailed Markdown files are authoritative Workspace data.
+
+“Local-first” means that authoritative memory is stored locally; it does not mean that every model operation runs offline. Normal Agent requests send the visible memory context to that Agent's model. Manual Session consolidation sends filtered conversation content and current Workspace memories to the model provider selected in Settings. Enable these features only when the provider's privacy policy is appropriate for your data.
+
+See [SECURITY.md](SECURITY.md) for vulnerability reporting.
+
+## Development and verification
+
+```sh
+pnpm run typecheck
+pnpm run test
+pnpm run build
+pnpm run check
+```
+
+Run `pnpm run check` before submitting code. See [docs/development.md](docs/development.md) for the verification matrix and manual checks, and [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow.
+
+## Documentation
+
+- [Architecture](docs/architecture.md): implemented components and Host/Browser request flows;
+- [Design](docs/design.md): stable product rules and v0.1 boundaries;
+- [Session consolidation](docs/session-consolidation.md): full flow, state machine, and data contracts;
+- [Roadmap](docs/roadmap.md): completed milestones and future directions;
+- [Development](docs/development.md): commands, verification matrix, and release procedure;
+- [Decision records](docs/decisions/implemented/): non-trivial architecture, behavior, and protocol decisions.
+
+The detailed engineering documents are currently maintained in Chinese. Contributions improving their English accessibility are welcome.
+
+## License
+
+[MIT](LICENSE) © 2026 hr98w

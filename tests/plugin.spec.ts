@@ -66,12 +66,19 @@ describe('Host Cordis composition', () => {
         return [
           { header: { id: 'session-eligible', createdAt: 2, cwd: '/work/plugin-rpc' }, revision: 'source:a' },
           { header: { id: 'session-live', createdAt: 1, cwd: '/work/plugin-rpc' }, revision: 'source:b' },
+          { header: { id: 'session-archived', createdAt: 0, cwd: '/work/plugin-rpc' }, revision: 'source:c' },
         ]
       },
     })
     const liveSession = { id: 'session-live' }
     ctx.provide('agents', { get(id: string) { return id === 'session-live' ? { session: liveSession } : undefined } })
     ctx.provide('sessions', { async flush() { return true } })
+    ctx.provide('workspaceRegistry', {
+      archivedSessionIds: ['session-archived'],
+      async create(path: string) {
+        return { path, async attachSession() {} }
+      },
+    })
     ctx.provide('sessionProjections', {
       snapshot(session: unknown) {
         expect(session).toBe(liveSession)
@@ -160,6 +167,8 @@ describe('Host Cordis composition', () => {
         ],
       },
     })
+    expect(await rpcHandler?.('sessions/consolidate', { sessionId: 'session-archived' }, signal))
+      .toMatchObject({ ok: false, error: { code: 'bad-request', message: expect.stringContaining('is archived') } })
     const models = await rpcHandler?.('models/read', {}, signal)
     expect(models).toMatchObject({
       ok: true,

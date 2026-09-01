@@ -1,7 +1,23 @@
 {
   "name": "@hr98w/dsh-memory",
   "version": "0.1.0",
-  "description": "Local-first Markdown memory for DeepSeek Harness with agentic recall, scoped writes, and a Web settings surface",
+  "description": "Markdown long-term memory for DeepSeek Harness with Global and Workspace layers and progressive disclosure",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hr98w/dsh-memory.git"
+  },
+  "homepage": "https://github.com/hr98w/dsh-memory#readme",
+  "bugs": {
+    "url": "https://github.com/hr98w/dsh-memory/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "memory",
+    "local-first",
+    "markdown",
+    "agent"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "./lib/index.mjs",
@@ -19,6 +35,10 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
+    "README.en.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs",
     "LICENSE"
   ],
   "dsh": {

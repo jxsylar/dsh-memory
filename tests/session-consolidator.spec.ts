@@ -123,6 +123,41 @@ describe('SessionConsolidator input preparation', () => {
     expect(inspected).toBe(false)
   })
 
+  it('rejects an archived Session before loading its complete event log', async () => {
+    let inspected = false
+    const consolidator = new SessionConsolidator(createStore(), {
+      async listSnapshots() { return [snapshot()] },
+      async inspect() { inspected = true; return inspection() },
+    }, { get() { return undefined } }, CONSOLIDATOR_VERSION, undefined, id => id === 'source-session')
+
+    await expect(consolidator.prepare('source-session')).rejects.toMatchObject({ code: 'archived' })
+    expect(inspected).toBe(false)
+  })
+
+  it('rejects a Session archived during preparation or before commit', async () => {
+    let archived = false
+    let listCalls = 0
+    const duringPreparation = new SessionConsolidator(createStore(), {
+      async listSnapshots() {
+        listCalls += 1
+        if (listCalls === 2) archived = true
+        return [snapshot()]
+      },
+      async inspect() { return inspection() },
+    }, { get() { return undefined } }, CONSOLIDATOR_VERSION, undefined, () => archived)
+
+    await expect(duringPreparation.prepare('source-session')).rejects.toMatchObject({ code: 'archived' })
+
+    archived = false
+    const beforeCommit = new SessionConsolidator(createStore(), {
+      async listSnapshots() { return [snapshot()] },
+      async inspect() { return inspection() },
+    }, { get() { return undefined } }, CONSOLIDATOR_VERSION, undefined, () => archived)
+    const input = await beforeCommit.prepare('source-session')
+    archived = true
+    await expect(beforeCommit.assertSourceStable(input)).rejects.toMatchObject({ code: 'archived' })
+  })
+
   it('rejects source revision drift after inspection', async () => {
     let calls = 0
     const consolidator = new SessionConsolidator(createStore(), {
