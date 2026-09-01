@@ -98,6 +98,7 @@ describe('Memory RPC protocol', () => {
       reviewId: `review-${'a'.repeat(64)}`,
       attempt: 1,
       changeCount: 2,
+      debugLoggingEnabled: true,
     })).toMatchObject({ status: 'committed', attempt: 1, changeCount: 2 })
     expect(parseSessionConsolidateResponse({
       status: 'evidence-too-large',
@@ -105,6 +106,7 @@ describe('Memory RPC protocol', () => {
       reviewId: `review-${'c'.repeat(64)}`,
       attempt: 1,
       changeCount: 0,
+      debugLoggingEnabled: false,
     })).toMatchObject({ status: 'evidence-too-large' })
     expect(parseSessionListResponse({ available: true, sessions: [{
       sessionId: 'session-2',
@@ -125,6 +127,7 @@ describe('Memory RPC protocol', () => {
     expect(parseConsolidationModelCatalogResponse({
       available: true,
       selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+      debugEnabled: false,
       revision: 'sha256:models',
       providers: [{ id: 'deepseek-official', name: 'DeepSeek', models: [{
         id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash', description: 'Fast model.',
@@ -132,7 +135,7 @@ describe('Memory RPC protocol', () => {
       failures: [],
     })).toMatchObject({ providers: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-flash' }] }] })
     expect(parseConsolidationModelSelectPayload({
-      expectedRevision: 'sha256:models', provider: 'deepseek-official', model: 'deepseek-v4-flash',
+      expectedRevision: 'sha256:models', provider: 'deepseek-official', model: 'deepseek-v4-flash', debugEnabled: true,
     })).toMatchObject({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
     expect(parseConsolidationModelSelectResponse({ status: 'committed', revision: 'sha256:new-model' }))
       .toEqual({ status: 'committed', revision: 'sha256:new-model' })
@@ -222,16 +225,21 @@ describe('Memory RPC protocol', () => {
       reviewId: `review-${'a'.repeat(64)}`,
       attempt: 1,
       changeCount: 0,
+      debugLoggingEnabled: false,
     })).toThrow(/terminal/)
     expect(() => parseConsolidationModelCatalogResponse({
       available: false,
       selection: { provider: 'p', model: 'm' },
+      debugEnabled: false,
       revision: 'sha256:models',
       providers: [{ id: 'p', name: 'P', models: [] }],
       failures: [],
     })).toThrow(/must not contain/)
     expect(() => parseConsolidationModelSelectPayload({
-      expectedRevision: 'sha256:models', provider: 'p', model: 'm', apiKey: 'secret',
+      expectedRevision: 'sha256:models', provider: 'p', model: 'm', debugEnabled: false, apiKey: 'secret',
     })).toThrow(/exactly/)
+    expect(() => parseConsolidationModelSelectPayload({
+      expectedRevision: 'sha256:models', provider: 'p', model: 'm', debugEnabled: 'yes',
+    })).toThrow(/boolean/)
   })
 })

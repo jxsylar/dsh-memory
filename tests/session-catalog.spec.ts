@@ -7,6 +7,7 @@ import type { MemorySessionSnapshot } from '../src/host-contracts.ts'
 import { MarkdownMemoryStore } from '../src/memory-store.ts'
 import { SessionCatalog } from '../src/session-catalog.ts'
 import type { ConsolidationReceiptStore } from '../src/consolidation-receipt.ts'
+import { isConsolidationWorkspaceCwd } from '../src/consolidation-workspace.ts'
 
 const roots: string[] = []
 
@@ -68,7 +69,7 @@ describe('Session candidate catalog', () => {
     expect(calls).toBe(2)
   })
 
-  it('omits internal consolidation worker Sessions from future source candidates', async () => {
+  it('omits worker ids and every Session in the internal consolidation Workspace', async () => {
     const source = snapshot('source', 'source:a', 2, '/work/project-alpha')
     const worker = snapshot(
       `session-memory-review-${'a'.repeat(64)}-attempt-1`,
@@ -76,9 +77,12 @@ describe('Session candidate catalog', () => {
       1,
       '/work/project-alpha',
     )
+    const internalWorkspace = '/memory/consolidator-workspace'
+    const internalOrdinarySession = snapshot('ordinary-id', 'source:c', 3, internalWorkspace)
     const catalog = new SessionCatalog(store(), {
-      async listSnapshots() { return [source, worker] },
-    }, { get() { return undefined } })
+      async listSnapshots() { return [source, worker, internalOrdinarySession] },
+    }, { get() { return undefined } }, undefined, undefined, cwd =>
+      isConsolidationWorkspaceCwd(cwd, internalWorkspace))
 
     await expect(catalog.list()).resolves.toMatchObject({
       sessions: [{ sessionId: 'source' }],

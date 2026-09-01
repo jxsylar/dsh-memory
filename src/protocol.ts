@@ -102,6 +102,7 @@ export interface SessionConsolidateResponse {
   reviewId: string
   attempt: number
   changeCount: number
+  debugLoggingEnabled: boolean
 }
 
 /** Memory-specific model route chosen from DSH's active model catalog. */
@@ -125,6 +126,7 @@ export interface ConsolidationModelProviderView {
 export interface ConsolidationModelCatalogResponse {
   available: boolean
   selection: ConsolidationModelSelection
+  debugEnabled: boolean
   revision: MemoryRevision
   providers: ConsolidationModelProviderView[]
   failures: Array<{ provider: string; message: string }>
@@ -132,6 +134,7 @@ export interface ConsolidationModelCatalogResponse {
 
 export interface ConsolidationModelSelectPayload extends ConsolidationModelSelection {
   expectedRevision: MemoryRevision
+  debugEnabled: boolean
 }
 
 export type ConsolidationModelSelectResponse =
@@ -212,11 +215,12 @@ export function parseSessionConsolidatePayload(value: unknown): SessionConsolida
 
 export function parseConsolidationModelSelectPayload(value: unknown): ConsolidationModelSelectPayload {
   const record = requireRecord(value, 'payload')
-  requireExactKeys(record, ['expectedRevision', 'provider', 'model'], 'payload')
+  requireExactKeys(record, ['expectedRevision', 'provider', 'model', 'debugEnabled'], 'payload')
   return {
     expectedRevision: requireRevision(record.expectedRevision, 'payload.expectedRevision'),
     provider: requireNonEmptySingleLine(record.provider, 'payload.provider'),
     model: requireNonEmptySingleLine(record.model, 'payload.model'),
+    debugEnabled: requireBoolean(record.debugEnabled, 'payload.debugEnabled'),
   }
 }
 
@@ -356,7 +360,7 @@ export function parseSessionListResponse(value: unknown): SessionListResponse {
 /** Parse one terminal manual consolidation result on both sides of the wire. */
 export function parseSessionConsolidateResponse(value: unknown): SessionConsolidateResponse {
   const record = requireRecord(value, 'session consolidate response')
-  requireExactKeys(record, ['status', 'recovered', 'reviewId', 'attempt', 'changeCount'], 'session consolidate response')
+  requireExactKeys(record, ['status', 'recovered', 'reviewId', 'attempt', 'changeCount', 'debugLoggingEnabled'], 'session consolidate response')
   if (!isTerminalReceiptState(record.status)) throw new TypeError('session consolidate response.status must be terminal')
   if (typeof record.recovered !== 'boolean') throw new TypeError('session consolidate response.recovered must be a boolean')
   if (!isConsolidationReviewId(record.reviewId)) {
@@ -364,20 +368,23 @@ export function parseSessionConsolidateResponse(value: unknown): SessionConsolid
   }
   if (!isNonNegativeInteger(record.attempt)) throw new TypeError('session consolidate response.attempt must be a non-negative integer')
   if (!isNonNegativeInteger(record.changeCount)) throw new TypeError('session consolidate response.changeCount must be a non-negative integer')
+  if (typeof record.debugLoggingEnabled !== 'boolean') throw new TypeError('session consolidate response.debugLoggingEnabled must be a boolean')
   return {
     status: record.status,
     recovered: record.recovered,
     reviewId: record.reviewId,
     attempt: record.attempt,
     changeCount: record.changeCount,
+    debugLoggingEnabled: record.debugLoggingEnabled,
   }
 }
 
 export function parseConsolidationModelCatalogResponse(value: unknown): ConsolidationModelCatalogResponse {
   const record = requireRecord(value, 'model catalog response')
-  requireExactKeys(record, ['available', 'selection', 'revision', 'providers', 'failures'], 'model catalog response')
+  requireExactKeys(record, ['available', 'selection', 'debugEnabled', 'revision', 'providers', 'failures'], 'model catalog response')
   if (typeof record.available !== 'boolean') throw new TypeError('model catalog response.available must be a boolean')
   const selection = parseModelSelection(record.selection, 'model catalog response.selection')
+  const debugEnabled = requireBoolean(record.debugEnabled, 'model catalog response.debugEnabled')
   const revision = requireRevision(record.revision, 'model catalog response.revision')
   if (!Array.isArray(record.providers)) throw new TypeError('model catalog response.providers must be an array')
   if (!Array.isArray(record.failures)) throw new TypeError('model catalog response.failures must be an array')
@@ -394,7 +401,7 @@ export function parseConsolidationModelCatalogResponse(value: unknown): Consolid
   if (!record.available && (providers.length !== 0 || failures.length !== 0)) {
     throw new TypeError('unavailable model catalog must not contain providers or failures')
   }
-  return { available: record.available, selection, revision, providers, failures }
+  return { available: record.available, selection, debugEnabled, revision, providers, failures }
 }
 
 export function parseConsolidationModelSelectResponse(value: unknown): ConsolidationModelSelectResponse {
@@ -554,6 +561,11 @@ function requireRevision(value: unknown, label: string): MemoryRevision {
     throw new TypeError(`${label} must be a sha256 revision`)
   }
   return value as MemoryRevision
+}
+
+function requireBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== 'boolean') throw new TypeError(`${label} must be a boolean`)
+  return value
 }
 
 function requireWorkspaceId(value: unknown, label: string): WorkspaceId {

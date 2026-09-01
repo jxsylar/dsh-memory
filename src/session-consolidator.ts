@@ -23,7 +23,7 @@ import {
 import type { MemoryRevision } from './protocol.ts'
 
 /** Versioned semantics included in every deterministic review identity. */
-export const CONSOLIDATOR_VERSION = 'm3-turn-evidence-v3'
+export const CONSOLIDATOR_VERSION = 'm3-turn-evidence-v4'
 
 export type SessionConsolidationErrorCode =
   | 'not-found'
@@ -68,6 +68,7 @@ export class SessionConsolidator {
     private readonly persistence: MemorySessionPersistence,
     private readonly agents: MemoryAgentRegistry,
     private readonly version = CONSOLIDATOR_VERSION,
+    private readonly excludeCwd: (cwd: string) => boolean = () => false,
   ) {}
 
   /** Observe, inspect, and re-observe one Session before exposing its complete logical events. */
@@ -80,6 +81,12 @@ export class SessionConsolidator {
     const cwd = first.header.cwd
     if (cwd === undefined) {
       throw new SessionConsolidationError('missing-cwd', `Session "${sessionId}" has no Workspace cwd`)
+    }
+    if (this.excludeCwd(cwd)) {
+      throw new SessionConsolidationError(
+        'workspace-unavailable',
+        `Session "${sessionId}" belongs to the internal consolidation Workspace`,
+      )
     }
 
     let scope: WorkspaceScope

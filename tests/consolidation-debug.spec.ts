@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -23,5 +23,14 @@ describe('ConsolidationDebugStore', () => {
     expect(lines).toMatchObject([{ stage: 'worker-start', provider: 'openai' }, { stage: 'agent-error' }])
     expect(source).not.toContain('sk-secret-value-123456')
     expect(source).toContain('[REDACTED]')
+  })
+
+  it('does not create a log when diagnostics are disabled', () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-memory-debug-'))
+    roots.push(root)
+    const debug = new ConsolidationDebugStore(root, () => new Date(), () => undefined, () => false)
+    const identity = { reviewId: `review-${'b'.repeat(64)}`, attempt: 1 }
+    debug.record(identity, 'worker-start')
+    expect(existsSync(debug.pathFor(identity))).toBe(false)
   })
 })

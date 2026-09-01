@@ -143,7 +143,7 @@ async function inputAndConsolidator(): Promise<{
   const workspace = await store.readWorkspace(scope)
   const input: SessionConsolidationInput = {
     reviewId: `review-${'a'.repeat(64)}`,
-    consolidatorVersion: 'm3-turn-evidence-v3',
+    consolidatorVersion: 'm3-turn-evidence-v4',
     source: {
       sessionId: 'source-session',
       revision: 'source:a',
@@ -185,7 +185,27 @@ describe('SessionConsolidationWorker', () => {
   it('runs one model request with an isolated prompt/tool surface and preserves replay input', async () => {
     const { input, consolidator } = await inputAndConsolidator()
     const host = new FakeWorkerHost({ kind: 'valid', proposal: validProposal })
-    const result = await new SessionConsolidationWorker(consolidator, host.agents, host.sessions).run(input, 1)
+    const attached: string[] = []
+    const result = await new SessionConsolidationWorker(
+      consolidator,
+      host.agents,
+      host.sessions,
+      {},
+      undefined,
+      {
+        async prepare() {
+          return {
+            cwd: '/work/memory-consolidation',
+            attachSession: async sessionId => { attached.push(sessionId) },
+          }
+        },
+      },
+      async (selection, ceiling) => {
+        expect(selection).toEqual({ provider: 'deepseek-official', model: 'deepseek-v4-flash' })
+        expect(ceiling).toBe(8192)
+        return 2048
+      },
+    ).run(input, 1)
 
     expect(result).toMatchObject({
       workerSessionId: `session-memory-review-${'a'.repeat(64)}-attempt-1`,
@@ -193,11 +213,12 @@ describe('SessionConsolidationWorker', () => {
     })
     expect(host.modelRequests).toBe(1)
     expect(host.createOptions).toMatchObject([{
-      meta: { cwd: '/work/worker' },
-      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash', maxTokens: 4096 },
+      meta: { cwd: '/work/memory-consolidation' },
+      agentOptions: { provider: 'deepseek-official', model: 'deepseek-v4-flash', maxTokens: 2048 },
     }])
     expect(host.suppressedRuntimeContext).toBe(1)
     expect(host.sections).toMatchObject([{ name: 'dsh-memory:consolidator', complete: true }])
+    expect(host.sections).toMatchObject([{ text: expect.stringContaining('call the tool as soon as you have the smallest useful proposal') }])
     expect(host.restrictions).toEqual([{ allow: [] }])
     expect(host.tools.map(tool => tool.name)).toEqual([CONSOLIDATION_PROPOSAL_TOOL])
     expect(host.tools[0]?.parameters).toMatchObject({
@@ -215,6 +236,7 @@ describe('SessionConsolidationWorker', () => {
     })
     expect(host.tools[0]?.parameters).not.toHaveProperty('type')
     expect(host.flushes).toHaveLength(1)
+    expect(attached).toEqual([`session-memory-review-${'a'.repeat(64)}-attempt-1`])
     expect(host.disposed).toBe(1)
 
     const replay = JSON.stringify(host.events)
@@ -272,6 +294,39 @@ describe('SessionConsolidationWorker', () => {
     expect(host.disposed).toBe(1)
   })
 
+  it('fails safely when the dedicated Workspace cannot be prepared or attached', async () => {
+    const { input, consolidator } = await inputAndConsolidator()
+    const host = new FakeWorkerHost({ kind: 'valid', proposal: validProposal })
+    await expect(new SessionConsolidationWorker(
+      consolidator,
+      host.agents,
+      host.sessions,
+      {},
+      undefined,
+      { async prepare() { throw new Error('workspace unavailable') } },
+    ).run(input, 1)).rejects.toMatchObject({ code: 'workspace' })
+    expect(host.createOptions).toHaveLength(0)
+
+    const attachHost = new FakeWorkerHost({ kind: 'valid', proposal: validProposal })
+    await expect(new SessionConsolidationWorker(
+      consolidator,
+      attachHost.agents,
+      attachHost.sessions,
+      {},
+      undefined,
+      {
+        async prepare() {
+          return {
+            cwd: '/work/memory-consolidation',
+            attachSession: async () => { throw new Error('attach failed') },
+          }
+        },
+      },
+    ).run(input, 1)).rejects.toMatchObject({ code: 'workspace-attach' })
+    expect(attachHost.flushes).toHaveLength(1)
+    expect(attachHost.disposed).toBe(1)
+  })
+
   it('preserves a contained agent error as a Provider failure', async () => {
     const { input, consolidator } = await inputAndConsolidator()
     const host = new FakeWorkerHost({ kind: 'provider-failed', error: new Error('upstream unavailable') })
@@ -310,7 +365,7 @@ describe('SessionConsolidationWorker', () => {
     expect(resolveConsolidationWorkerConfig({})).toMatchObject({
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash',
-      maxTokens: 4096,
+      maxTokens: 8192,
       timeoutMs: 120000,
       maxInputBytes: 131072,
     })

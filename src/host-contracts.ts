@@ -3,6 +3,7 @@
 import type { MemoryRpcResult } from './protocol.ts'
 import type { ConsolidationWorkerAgents, ConsolidationWorkerSessions } from './consolidation-worker.ts'
 import type { MemoryLlmCatalog } from './consolidation-settings.ts'
+import type { MemoryWorkspaceRegistry } from './consolidation-workspace.ts'
 
 /** Current Agent identity made available to prompt and tool execution. */
 export interface MemoryAgent {
@@ -102,5 +103,6 @@ declare module '@deepseek-ai/cordis' {
     llm: MemoryLlmCatalog
     sessionProjections: MemorySessionProjections
     sessionProjectionCache: MemorySessionProjectionCache
+    workspaceRegistry: MemoryWorkspaceRegistry
   }
 }

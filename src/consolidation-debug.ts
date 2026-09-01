@@ -15,6 +15,7 @@ export class ConsolidationDebugStore {
     readonly directory: string,
     private readonly now: () => Date = () => new Date(),
     private readonly warn: (message: string) => void = () => undefined,
+    private readonly enabled: () => boolean = () => true,
   ) {}
 
   record(
@@ -24,6 +25,7 @@ export class ConsolidationDebugStore {
   ): void {
     assertIdentity(identity)
     try {
+      if (!this.enabled()) return
       const reviewDirectory = join(this.directory, identity.reviewId)
       mkdirSync(reviewDirectory, { recursive: true, mode: 0o700 })
       appendFileSync(

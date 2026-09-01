@@ -31,7 +31,7 @@
 $DSH_HOME/memory/
 ├── GLOBAL.md
 ├── settings.yml
-├── debug/
+├── debug/                         # 仅在用户开启详细调试后写入
 │   └── <review-id>/attempt-<n>.jsonl
 ├── workspaces/
 │   └── <workspace-key>/
@@ -153,7 +153,7 @@ Session 整理是第一版核心闭环。它的目标是从一个已经持久化
 - 完整逻辑事件保留在 Host；模型只接收可回放的 turn evidence，不接收请求元数据、流式片段或工具正文；
 - 不静默截断过长输入；筛选后的动态输入超过显式上限时记录 `evidence-too-large`；
 - 同一 source session revision 与 consolidator version 的成功结果具有稳定 review id，重复执行不再次调用模型；
-- 整理输入和输出保存在独立 worker Session 中，保证模型可见过程可回放。
+- 整理输入和输出保存在独立 worker Session 中，使用专属运行 cwd 与 DSH Workspace 隔离普通项目历史，同时不改变由 source Session 决定的记忆目标，保证模型可见过程可回放。
 - 若旧 review 停在 commit barrier，即使 source revision 已增长，也先恢复或收敛旧事务，再由下一次显式触发处理新 revision。
 
 Receipt 位于 `reviews/<review-id>.md`，记录来源 Session、source revision、Workspace、覆盖 seq、worker Session、状态、提交前后 revision 和实际变化，不复制完整对话或详细记忆正文。
@@ -168,10 +168,10 @@ Memory 是 DSH Settings 中独立 section，包含：
 
 | 页面 | 职责 |
 |---|---|
-| Global | 编辑完整 `GLOBAL.md`，使用 revision 保存 |
-| Workspaces | 浏览 Workspace、索引和详细记录，批量提交 mutation |
-| Sessions | 先选择 Workspace，再按标题浏览稳定 Session、触发整理并查看 receipt |
-| Model | 从 DSH 已激活的文本模型中选择整理模型；凭据仍由 DSH 管理 |
+| 全局记忆 | 编辑完整 `GLOBAL.md`，使用 revision 保存 |
+| 工作区记忆 | 浏览 Workspace、索引和详细记录，批量提交 mutation |
+| 会话整理 | 先选择 Workspace，再按标题浏览稳定 Session、触发整理并查看 receipt；内部整理 Workspace 不显示且不能作为来源 |
+| 设置 | 从 DSH 已激活的文本模型中选择整理模型，并按需开启详细 Debug 日志；凭据和每个 route 的模型能力仍由 DSH 管理 |
 | Status | 展示 root、字节统计、错误和最近操作状态 |
 
 Browser 与 Host 是两个 Cordis tree。Browser 只能通过 `/memory` loopback Connection RPC 使用受校验的业务值，不能直接访问 Host `ctx`、文件系统、`MemoryStore` 或 `SessionPersistence`。
@@ -185,7 +185,7 @@ Browser 与 Host 是两个 Cordis tree。Browser 只能通过 `/memory` loopback
 | `workspaces/list` | Workspace 摘要列表 |
 | `workspace/read` / `workspace/commit` | 读取和批量提交一个 Workspace |
 | `sessions/list` / `sessions/consolidate` | 列出可整理 Session并触发一次整理 |
-| `models/read` / `models/select` | 投影 DSH 活跃模型目录，并以 CAS 保存整理模型 |
+| `models/read` / `models/select` | 投影 DSH 活跃模型目录，并以 CAS 保存整理模型和 Debug 开关 |
 
 Host 与 Browser 都必须解析 wire value。Browser 只提交 opaque Workspace id 或 Session id，Host 解析权威 scope。v0.1 不轮询也不推送 memory-change；用户打开页面、切换页面、完成操作或点击 Refresh 时重新读取。
 
@@ -224,4 +224,4 @@ Session 标题是 DSH Session 日志中最新 `session/title` 事件的派生视
 
 模型整理使用独立的显式 provider、model、输出 token 上限和端到端超时，不继承当前 Agent 的模型路由。用户从 DSH 已激活的文本模型中选择路由，API key 与 Provider 激活仍由 DSH 管理；插件只在 `settings.yml` 保存 provider/model，不保存凭据。
 
-`settings.yml` 与 `debug/` 是插件配置和运维派生数据，不是权威记忆，也不进入模型上下文。每次整理 attempt 的 JSONL 日志记录阶段、错误链和 stack，但不复制 Session evidence、memory/proposal 正文或凭据。真实使用一段时间后，再根据分布决定 hot context、单文件或 review 输入预算。
+`settings.yml` 与 `debug/` 是插件配置和运维派生数据，不是权威记忆，也不进入模型上下文。用户开启 Debug 后，新整理 attempt 的 JSONL 日志记录阶段、错误链和 stack，但不复制 Session evidence、memory/proposal 正文或凭据；Debug 默认关闭。真实使用一段时间后，再根据分布决定 hot context、单文件或 review 输入预算。

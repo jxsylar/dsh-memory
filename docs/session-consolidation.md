@@ -14,7 +14,7 @@
 | 计划 | 当前推荐方案，讨论确认后按切片实现 |
 | 待讨论 | 会显著影响安全、用户体验或数据格式，写代码前需要确认 |
 
-M3-A 至 M3-E 已实现：稳定输入、proposal 校验、受限单次 worker、手动 attempt 编排、失败 receipt、并发去重、Workspace CAS、跨 source revision 的 pending recovery、`sessions/consolidate` RPC、Sessions UI、详细 debug 日志和整理模型选择。真实 DSH 成功与非法 proposal 失败链路均已验证；自动组装回放和发布 GIF 尚未完成。
+M3-A 至 M3-E 已实现：稳定输入、proposal 校验、受限单次 worker、手动 attempt 编排、失败 receipt、并发去重、Workspace CAS、跨 source revision 的 pending recovery、`sessions/consolidate` RPC、Sessions UI、可选详细 debug 日志和整理模型选择。真实 DSH 成功与非法 proposal 失败链路均已验证；自动组装回放和发布 GIF 尚未完成。
 
 ## 2. 目标与非目标
 
@@ -132,7 +132,7 @@ worker Session 不使用 source Session id，不 resume source，也不把 sourc
 
 ### 6.2 Workspace 与上下文
 
-已实现：worker Session header 复制 Host 已解析的 source cwd，使 DSH 原生历史控制器可以读取已持久化的审计 Session。该字段不进入 worker 的动态输入，`suppressRuntimeContext()` 继续关闭所有普通 Workspace runtime context；Browser、proposal 与模型仍看不到 cwd。Memory Session catalog 在分类前按受控 worker id 格式排除这些 Session，因此它们不能再次成为整理来源。target Workspace 仍只来自冻结的 source scope，不能由 worker proposal 修改。
+已实现：worker Session header 使用 `$DSH_HOME/memory/consolidator-workspace` 专属 cwd，使其持久化日志与正常项目 Session 物理分离。Web Host 提供 Workspace Registry 时，插件创建或复用 `Memory Consolidation` DSH Workspace，并在 worker flush 成功后挂接 Session；Headless 等没有该可选服务的组合仍使用专属 cwd，只是不建立原生 UI 分组。该字段不进入 worker 的动态输入，`suppressRuntimeContext()` 继续关闭所有普通 Workspace runtime context；Browser、proposal 与模型仍看不到 cwd。Memory Session catalog 在分类前同时排除受控 worker id 和专属 cwd 下的全部 Session，所以该 Workspace 整体不出现在会话整理页面；Host prepare 再按 cwd 拒绝直接请求，避免任何内部审计 Session 成为整理来源。target Workspace 仍只来自冻结的 source scope，不能由 worker 的运行归属或 proposal 修改。既有 worker Session 不做迁移。
 
 worker 的模型可见信息分两部分：
 
@@ -170,18 +170,20 @@ worker 的模型可见信息分两部分：
 ```yaml
 provider: deepseek-official
 model: deepseek-v4-flash
-maxTokens: 4096
+maxTokens: 8192
 timeoutMs: 120000
 maxInputBytes: 131072
 ```
 
-这是一个可覆盖的默认值，不做价格查询，也不在运行时自动选择“最便宜”模型。Memory 的 Model 页面从 DSH 活跃模型目录读取可用文本模型，API key 仍由 DSH Models 页面管理；插件只以 CAS 保存 provider/model。修改只影响之后开始的 attempt，已经运行或写入 receipt 的 attempt 保留其快照 route。插件同时暴露：
+这是一个可覆盖的首次启动默认 route，不做价格查询，也不在运行时自动选择“最便宜”模型。Memory 设置页从 DSH 活跃模型目录读取可用文本模型，API key 仍由 DSH Models 页面管理；插件只以 CAS 保存 provider/model。设置文件存在后，保存的 route 覆盖默认 provider/model。修改只影响之后开始的 attempt，已经运行或写入 receipt 的 attempt 保留其快照 route。插件同时保留：
 
-- 单次请求最大输出 token；
+- 单次请求期望输出 token 上限；默认 8192，并通过 DSH `resolveModelInfo()` 取它与所选模型 `defaultMaxTokens` 的较小值，兼容较低上限的 route；
 - 整个 attempt 的端到端 timeout。
 - 筛选后动态输入的最大 UTF-8 字节数。
 
 timeout 或用户取消会 abort worker、等待其收敛并保存失败 receipt。第一版不自动换 Provider 或降低输入质量重试。
+
+Prompt 要求 worker 跳过逐项复述、备选草稿和长篇规划，一旦形成最小有用 proposal 就立即调用工具；证据不足时优先 `no-change`。该规则减少 reasoning 模型在工具调用前耗尽输出预算的概率，但不取消一次 attempt 一次 Provider 请求的确定性边界。
 
 ## 7. 阶段三：Proposal contract
 

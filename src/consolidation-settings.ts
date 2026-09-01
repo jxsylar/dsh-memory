@@ -1,4 +1,4 @@
-/** Persistent model selection and active DSH model catalog projection. */
+/** Persistent consolidation preferences and active DSH model catalog projection. */
 
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
@@ -11,7 +11,7 @@ import type {
   MemoryRevision,
 } from './protocol.ts'
 
-const SETTINGS_FORMAT = 1
+const SETTINGS_FORMAT = 2
 
 export interface MemoryLlmCatalog {
   listProviders(): Array<{ id: string; name: string }>
@@ -22,10 +22,16 @@ export interface MemoryLlmCatalog {
     description?: string
     inputModalities?: readonly string[]
   }>>
+  resolveModelInfo(
+    provider: string,
+    model: string,
+    signal?: AbortSignal,
+  ): Promise<{ defaultMaxTokens?: number }>
 }
 
 export interface ConsolidationSettingsView {
   readonly selection: ConsolidationModelSelection
+  readonly debugEnabled: boolean
   readonly revision: MemoryRevision
 }
 
@@ -41,26 +47,30 @@ export class ConsolidationSettingsStore {
   }
 
   read(): ConsolidationSettingsView {
-    const selection = existsSync(this.path)
+    const settings = existsSync(this.path)
       ? parseSettings(readFileSync(this.path, 'utf8'))
-      : validateSelection(this.defaults)
-    return { selection, revision: settingsRevision(selection) }
+      : { selection: validateSelection(this.defaults), debugEnabled: false }
+    return { ...settings, revision: settingsRevision(settings) }
   }
 
   commit(input: {
     expectedRevision: MemoryRevision
     selection: ConsolidationModelSelection
+    debugEnabled: boolean
   }): { status: 'committed'; revision: MemoryRevision } | { status: 'conflict'; currentRevision: MemoryRevision } {
     const current = this.read()
     if (current.revision !== input.expectedRevision) {
       return { status: 'conflict', currentRevision: current.revision }
     }
-    const selection = validateSelection(input.selection)
+    const settings = {
+      selection: validateSelection(input.selection),
+      debugEnabled: validateDebugEnabled(input.debugEnabled),
+    }
     mkdirSync(dirname(this.path), { recursive: true })
     const temporary = `${this.path}.tmp-${process.pid}-${randomUUID()}`
-    writeFileSync(temporary, serializeSettings(selection), { encoding: 'utf8', mode: 0o600 })
+    writeFileSync(temporary, serializeSettings(settings), { encoding: 'utf8', mode: 0o600 })
     renameSync(temporary, this.path)
-    return { status: 'committed', revision: settingsRevision(selection) }
+    return { status: 'committed', revision: settingsRevision(settings) }
   }
 }
 
@@ -90,6 +100,7 @@ export async function readConsolidationModelCatalog(
   return {
     available: true,
     selection: current.selection,
+    debugEnabled: current.debugEnabled,
     revision: current.revision,
     providers: results.flatMap(result => result.provider === undefined ? [] : [result.provider]),
     failures: results.flatMap(result => result.failure === undefined ? [] : [result.failure]),
@@ -104,7 +115,26 @@ export function selectionIsAvailable(
     && provider.models.some(model => model.id === selection.model))
 }
 
-function parseSettings(source: string): ConsolidationModelSelection {
+/** Respect the selected model's adapter-owned output cap while retaining a plugin cost ceiling. */
+export async function resolveConsolidationOutputTokens(
+  llm: MemoryLlmCatalog,
+  selection: ConsolidationModelSelection,
+  ceiling: number,
+  signal?: AbortSignal,
+): Promise<number> {
+  if (!Number.isSafeInteger(ceiling) || ceiling < 1) {
+    throw new TypeError('consolidation output-token ceiling must be a positive safe integer')
+  }
+  const model = await llm.resolveModelInfo(selection.provider, selection.model, signal)
+  const modelLimit = model.defaultMaxTokens
+  if (modelLimit === undefined) return ceiling
+  if (!Number.isSafeInteger(modelLimit) || modelLimit < 1) {
+    throw new TypeError('DSH model output-token limit must be a positive safe integer')
+  }
+  return Math.min(ceiling, modelLimit)
+}
+
+function parseSettings(source: string): Omit<ConsolidationSettingsView, 'revision'> {
   let value: unknown
   try {
     value = parse(source)
@@ -115,11 +145,17 @@ function parseSettings(source: string): ConsolidationModelSelection {
     throw new TypeError('Memory consolidation settings must be an object')
   }
   const record = value as Record<string, unknown>
-  const keys = Object.keys(record).sort()
-  if (keys.join(',') !== 'format,model,provider' || record.format !== SETTINGS_FORMAT) {
+  const keys = Object.keys(record).sort().join(',')
+  if (record.format === 1 && keys === 'format,model,provider') {
+    return { selection: validateSelection({ provider: record.provider, model: record.model }), debugEnabled: false }
+  }
+  if (record.format !== SETTINGS_FORMAT || keys !== 'debug,format,model,provider') {
     throw new TypeError('Memory consolidation settings have missing or unknown fields')
   }
-  return validateSelection({ provider: record.provider, model: record.model })
+  return {
+    selection: validateSelection({ provider: record.provider, model: record.model }),
+    debugEnabled: validateDebugEnabled(record.debug),
+  }
 }
 
 function validateSelection(value: { provider: unknown; model: unknown }): ConsolidationModelSelection {
@@ -132,12 +168,22 @@ function validateSelection(value: { provider: unknown; model: unknown }): Consol
   return { provider: value.provider, model: value.model }
 }
 
-function serializeSettings(selection: ConsolidationModelSelection): string {
-  return stringify({ format: SETTINGS_FORMAT, provider: selection.provider, model: selection.model }, { lineWidth: 0 })
+function validateDebugEnabled(value: unknown): boolean {
+  if (typeof value !== 'boolean') throw new TypeError('consolidation debug must be a boolean')
+  return value
 }
 
-function settingsRevision(selection: ConsolidationModelSelection): MemoryRevision {
-  return `sha256:${createHash('sha256').update(serializeSettings(selection), 'utf8').digest('hex')}` as MemoryRevision
+function serializeSettings(settings: Omit<ConsolidationSettingsView, 'revision'>): string {
+  return stringify({
+    format: SETTINGS_FORMAT,
+    provider: settings.selection.provider,
+    model: settings.selection.model,
+    debug: settings.debugEnabled,
+  }, { lineWidth: 0 })
+}
+
+function settingsRevision(settings: Omit<ConsolidationSettingsView, 'revision'>): MemoryRevision {
+  return `sha256:${createHash('sha256').update(serializeSettings(settings), 'utf8').digest('hex')}` as MemoryRevision
 }
 
 function safeDiagnosticMessage(error: unknown): string {

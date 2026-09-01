@@ -26,9 +26,16 @@ import { ConsolidationDebugStore } from './consolidation-debug.ts'
 import {
   ConsolidationSettingsStore,
   readConsolidationModelCatalog,
+  resolveConsolidationOutputTokens,
   selectionIsAvailable,
   type MemoryLlmCatalog,
 } from './consolidation-settings.ts'
+import {
+  CONSOLIDATION_WORKSPACE_DIRECTORY,
+  DedicatedConsolidationWorkspace,
+  isConsolidationWorkspaceCwd,
+  type MemoryWorkspaceRegistry,
+} from './consolidation-workspace.ts'
 import {
   parseEmptyPayload,
   parseGlobalMemoryView,
@@ -56,7 +63,7 @@ export const name = 'dsh-memory'
 /** All DSH capabilities are optional and mounted through child inject fibers. */
 export const inject: string[] = []
 
-/** Plugin configuration, including the dedicated low-cost consolidation route. */
+/** Bundle bootstrap route and operational ceilings for the consolidation worker. */
 export interface Config {
   readonly consolidator?: Partial<ConsolidationWorkerConfig>
 }
@@ -101,18 +108,35 @@ export function apply(ctx: Context, config: Config = {}): void {
   const store = new MarkdownMemoryStore(ctx)
   store.initialize()
   const receipts = new ConsolidationReceiptStore(join(store.root, 'reviews'))
+  const consolidationSettings = new ConsolidationSettingsStore(store.root, workerConfig)
+  let workspaceRegistry: MemoryWorkspaceRegistry | undefined
+  const workerWorkspace = new DedicatedConsolidationWorkspace(
+    join(store.root, CONSOLIDATION_WORKSPACE_DIRECTORY),
+    () => workspaceRegistry,
+  )
+  const excludesConsolidationWorkspace = (cwd: string | undefined): boolean =>
+    isConsolidationWorkspaceCwd(cwd, workerWorkspace.directory)
   const debug = new ConsolidationDebugStore(
     join(store.root, 'debug'),
     () => new Date(),
     message => ctx.logger.warn(message),
+    () => consolidationSettings.read().debugEnabled,
   )
-  const consolidationSettings = new ConsolidationSettingsStore(store.root, workerConfig)
   let sessionCatalog: SessionCatalog | undefined
   let sessionRunner: SessionConsolidationRunner | undefined
   let sessionWorker: SessionConsolidationWorker | undefined
   let sessionProjections: import('./host-contracts.ts').MemorySessionProjections | undefined
   let sessionProjectionCache: import('./host-contracts.ts').MemorySessionProjectionCache | undefined
   let llmCatalog: MemoryLlmCatalog | undefined
+
+  ctx.inject(['workspaceRegistry'], (workspaceCtx) => {
+    workspaceCtx.effect(() => {
+      workspaceRegistry = workspaceCtx.workspaceRegistry
+      return () => {
+        if (workspaceRegistry === workspaceCtx.workspaceRegistry) workspaceRegistry = undefined
+      }
+    }, 'dsh-memory: consolidation Workspace registry')
+  })
 
   ctx.inject(['systemPrompt'], (promptCtx) => {
     promptCtx.systemPrompt.section({ name: 'dsh-memory:rules', order: 50, text: MEMORY_RULES })
@@ -138,6 +162,7 @@ export function apply(ctx: Context, config: Config = {}): void {
           ...(sessionProjections === undefined ? {} : { live: sessionProjections }),
           ...(sessionProjectionCache === undefined ? {} : { cached: sessionProjectionCache }),
         }),
+        excludesConsolidationWorkspace,
       )
       sessionCatalog = catalog
       return () => {
@@ -164,9 +189,15 @@ export function apply(ctx: Context, config: Config = {}): void {
     }, 'dsh-memory: cached Session title projections')
   })
 
-  ctx.inject(['sessionPersistence', 'agents', 'sessions', 'systemPrompt', 'tools'], (sessionCtx) => {
+  ctx.inject(['sessionPersistence', 'agents', 'sessions', 'systemPrompt', 'tools', 'llm'], (sessionCtx) => {
     sessionCtx.effect(() => {
-      const consolidator = new SessionConsolidator(store, sessionCtx.sessionPersistence, sessionCtx.agents)
+      const consolidator = new SessionConsolidator(
+        store,
+        sessionCtx.sessionPersistence,
+        sessionCtx.agents,
+        undefined,
+        excludesConsolidationWorkspace,
+      )
       const selection = consolidationSettings.read().selection
       const worker = new SessionConsolidationWorker(
         consolidator,
@@ -174,6 +205,13 @@ export function apply(ctx: Context, config: Config = {}): void {
         sessionCtx.sessions,
         { ...workerConfig, ...selection },
         debug,
+        workerWorkspace,
+        (selection, ceiling, signal) => resolveConsolidationOutputTokens(
+          sessionCtx.llm,
+          selection,
+          ceiling,
+          signal,
+        ),
       )
       const commits = new ConsolidationCommitCoordinator(store, consolidator, receipts)
       const replay = new WorkerSessionPlanReplay(sessionCtx.sessionPersistence, consolidator)
@@ -364,6 +402,7 @@ async function handleMemoryRpc(
         const input = parseSessionConsolidatePayload(payload)
         const runner = getSessionRunner()
         if (runner === undefined) return badRequest('Session consolidation is unavailable in this Host profile')
+        const debugLoggingEnabled = consolidationSettings.read().debugEnabled
         const result = await runner.run(input.sessionId, signal)
         const latestAttempt = result.receipt.attempts.at(-1)?.attempt ?? 0
         return { ok: true, value: parseSessionConsolidateResponse({
@@ -372,6 +411,7 @@ async function handleMemoryRpc(
           reviewId: result.receipt.reviewId,
           attempt: latestAttempt,
           changeCount: result.receipt.changes.length,
+          debugLoggingEnabled,
         }) }
       }
       case 'models/read': {
@@ -382,6 +422,7 @@ async function handleMemoryRpc(
           return { ok: true, value: parseConsolidationModelCatalogResponse({
             available: false,
             selection: current.selection,
+            debugEnabled: current.debugEnabled,
             revision: current.revision,
             providers: [],
             failures: [],
@@ -393,14 +434,22 @@ async function handleMemoryRpc(
       }
       case 'models/select': {
         const input = parseConsolidationModelSelectPayload(payload)
-        const llm = getLlmCatalog()
-        if (llm === undefined) return badRequest('DSH model catalog is unavailable in this Host profile')
-        const catalog = await readConsolidationModelCatalog(llm, consolidationSettings)
+        const current = consolidationSettings.read()
         const selection = { provider: input.provider, model: input.model }
-        if (!selectionIsAvailable(catalog, selection)) {
-          return badRequest(`model route is not active: ${input.provider}/${input.model}`)
+        const routeChanged = selection.provider !== current.selection.provider || selection.model !== current.selection.model
+        if (routeChanged) {
+          const llm = getLlmCatalog()
+          if (llm === undefined) return badRequest('DSH model catalog is unavailable in this Host profile')
+          const catalog = await readConsolidationModelCatalog(llm, consolidationSettings)
+          if (!selectionIsAvailable(catalog, selection)) {
+            return badRequest(`model route is not active: ${input.provider}/${input.model}`)
+          }
         }
-        const result = consolidationSettings.commit({ expectedRevision: input.expectedRevision, selection })
+        const result = consolidationSettings.commit({
+          expectedRevision: input.expectedRevision,
+          selection,
+          debugEnabled: input.debugEnabled,
+        })
         if (result.status === 'committed') getSessionWorker()?.updateModel(selection)
         return { ok: true, value: parseConsolidationModelSelectResponse(result) }
       }
@@ -463,8 +512,15 @@ export {
 } from './consolidation-runner.ts'
 export { ConsolidationDebugStore } from './consolidation-debug.ts'
 export {
+  CONSOLIDATION_WORKSPACE_DIRECTORY,
+  CONSOLIDATION_WORKSPACE_TITLE,
+  DedicatedConsolidationWorkspace,
+  isConsolidationWorkspaceCwd,
+} from './consolidation-workspace.ts'
+export {
   ConsolidationSettingsStore,
   readConsolidationModelCatalog,
+  resolveConsolidationOutputTokens,
   selectionIsAvailable,
 } from './consolidation-settings.ts'
 export type {
@@ -495,6 +551,12 @@ export type {
   ConsolidationWorkerDriver,
   SessionConsolidationRunErrorCode,
 } from './consolidation-runner.ts'
+export type {
+  ConsolidationWorkspacePlacement,
+  MemoryWorkspace,
+  MemoryWorkspaceRegistry,
+  PreparedConsolidationWorkspace,
+} from './consolidation-workspace.ts'
 export type {
   GlobalMemoryView,
   GlobalReplaceResponse,

@@ -38,7 +38,7 @@ class FakeWorker implements ConsolidationWorkerDriver {
   readonly config = {
     provider: 'deepseek-official',
     model: 'deepseek-v4-flash',
-    maxTokens: 4096,
+    maxTokens: 8192,
     timeoutMs: 120000,
     maxInputBytes: 131072,
   }

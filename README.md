@@ -21,7 +21,8 @@
 $DSH_HOME/memory/
 ├── GLOBAL.md
 ├── settings.yml
-├── debug/<review-id>/attempt-<n>.jsonl
+├── consolidator-workspace/                    # 内部整理 Session 的专属 cwd
+├── debug/<review-id>/attempt-<n>.jsonl  # 仅在设置中开启调试后写入
 ├── reviews/<review-id>.md
 └── workspaces/<workspace-key>/
     ├── MEMORY.md
@@ -36,9 +37,9 @@ $DSH_HOME/memory/
 |---|---|---|
 | Markdown MemoryStore | 已实现 | Global 与 Workspace 读取、revision、CAS 写入和 Workspace 索引重建 |
 | Prompt 注入 | 已实现 | 自动加载 Global 和当前 Workspace `MEMORY.md`，详细文件按需搜索 |
-| Loopback RPC | 已实现 | Status、Global 读写、Workspace 管理、Session 候选与手动整理、整理模型选择 |
+| Loopback RPC | 已实现 | Status、Global 读写、Workspace 管理、Session 候选与手动整理、整理设置 |
 | Session 资格判定 | 已实现 | 通过 SessionPersistence snapshot 与 live Agent registry 排除不安全候选，并从 DSH 投影读取标题 |
-| Session Consolidator | 已实现 | 受限 worker、turn 级证据、严格 proposal、receipt、幂等提交、恢复、debug 与模型选择；真实成功和失败链路均已验证 |
+| Session Consolidator | 已实现 | 受限 worker、专属 DSH Workspace、turn 级证据、严格 proposal、receipt、幂等提交、恢复、可选 debug 与模型选择；真实成功和失败链路均已验证 |
 
 ### Tools
 
@@ -50,10 +51,12 @@ $DSH_HOME/memory/
 
 | 页面 | 状态 | 作用 |
 |---|---|---|
-| Global | 已实现 | 跟随 DSH Web 中英文设置，查看、编辑并 CAS 保存 `GLOBAL.md` |
-| Workspaces | 已实现 | 浏览 Workspace、派生索引与详细记忆，创建、编辑、删除并批量保存 |
-| Sessions | 已实现 | 先按 Workspace 选择，再按标题浏览 Session、资格与 receipt；真实整理成功路径已验证 |
-| Model | 已实现 | 读取 DSH 已激活文本模型并选择整理 route；真实 worker 已使用所选 route，API key 仍由 DSH 管理 |
+| 全局记忆 / Global Memory | 已实现 | 查看、编辑并 CAS 保存自动提供给 Agent 的 `GLOBAL.md` |
+| 工作区记忆 / Workspace Memory | 已实现 | 浏览 Workspace、派生索引与详细记忆，创建、编辑、删除并批量保存 |
+| 会话整理 / Session Consolidation | 已实现 | 先按 Workspace 选择，再按标题浏览 Session、资格与 receipt；内部 `Memory Consolidation` Workspace 整体不进入候选目录 |
+| 设置 / Settings | 已实现 | 选择 DSH 已激活的整理模型，并按需开启详细 Debug 日志；API key 仍由 DSH 管理 |
+
+设置页保存的 provider/model 是后续整理 attempt 的权威 route。插件配置中的默认 route 只在尚无 `settings.yml` 时用于首次启动；输出预算、超时和输入字节上限是独立的运行安全参数。默认期望输出预算为 8192 tokens，实际请求会读取所选 DSH 模型的统一能力信息，并取“插件预算与模型上限中的较小值”。
 
 ![Memory Settings structure](docs/preview/memory-settings.svg)
 

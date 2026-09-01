@@ -92,6 +92,9 @@ describe('Host Cordis composition', () => {
           { provider, id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro', inputModalities: ['text'] },
         ]
       },
+      async resolveModelInfo(provider: string, model: string) {
+        return { provider, id: model, name: model, defaultMaxTokens: 16_384 }
+      },
     })
     const fiber = ctx.plugin({ inject, apply })
     await fiber.await()
@@ -162,6 +165,7 @@ describe('Host Cordis composition', () => {
       ok: true,
       value: {
         selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        debugEnabled: false,
         providers: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-flash' }, { id: 'deepseek-v4-pro' }] }],
       },
     })
@@ -171,11 +175,13 @@ describe('Host Cordis composition', () => {
       expectedRevision: modelRevision,
       provider: 'deepseek-official',
       model: 'deepseek-v4-pro',
+      debugEnabled: true,
     }, signal)).toMatchObject({ ok: true, value: { status: 'committed' } })
     expect(await rpcHandler?.('models/select', {
       expectedRevision: modelRevision,
       provider: 'unknown',
       model: 'unknown',
+      debugEnabled: false,
     }, signal)).toMatchObject({ ok: false, error: { code: 'bad-request' } })
     expect(await rpcHandler?.('sessions/consolidate', { sessionId: 'session-eligible' }, signal))
       .toMatchObject({ ok: true, value: { status: 'no-change', recovered: false, attempt: 1, changeCount: 0 } })

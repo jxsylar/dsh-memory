@@ -6,8 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { MemorySessionInspection, MemorySessionSnapshot } from '../src/host-contracts.ts'
 import { MarkdownMemoryStore } from '../src/memory-store.ts'
 import {
+  CONSOLIDATOR_VERSION,
   SessionConsolidator,
 } from '../src/session-consolidator.ts'
+import { isConsolidationWorkspaceCwd } from '../src/consolidation-workspace.ts'
 
 const roots: string[] = []
 
@@ -68,7 +70,7 @@ describe('SessionConsolidator input preparation', () => {
     expect(listCalls).toBe(2)
     expect(prepared).toMatchObject({
       reviewId: expect.stringMatching(/^review-[a-f0-9]{64}$/u),
-      consolidatorVersion: 'm3-turn-evidence-v3',
+      consolidatorVersion: 'm3-turn-evidence-v4',
       source: { sessionId: 'source-session', revision: 'source:a', createdAt: 42 },
       workspace: { revision: expect.stringMatching(/^sha256:/u), records: [{ name: 'existing-rule' }] },
     })
@@ -102,6 +104,22 @@ describe('SessionConsolidator input preparation', () => {
     }, { get() { return {} } })
 
     await expect(consolidator.prepare('source-session')).rejects.toMatchObject({ code: 'live' })
+    expect(inspected).toBe(false)
+  })
+
+  it('rejects direct consolidation of a Session in the internal consolidation Workspace', async () => {
+    const internalWorkspace = '/memory/consolidator-workspace'
+    let inspected = false
+    const consolidator = new SessionConsolidator(createStore(), {
+      async listSnapshots() { return [snapshot('source:a', internalWorkspace)] },
+      async inspect() { inspected = true; return inspection(internalWorkspace) },
+    }, { get() { return undefined } }, CONSOLIDATOR_VERSION, cwd =>
+      isConsolidationWorkspaceCwd(cwd, internalWorkspace))
+
+    await expect(consolidator.prepare('source-session')).rejects.toMatchObject({
+      code: 'workspace-unavailable',
+      message: expect.stringContaining('internal consolidation Workspace'),
+    })
     expect(inspected).toBe(false)
   })
 

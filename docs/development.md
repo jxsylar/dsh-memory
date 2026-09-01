@@ -53,15 +53,17 @@ dsh web --no-open
 ### 手工验证 Session 整理与模型设置
 
 1. 在 DSH Models 页面配置并激活至少一个文本模型，然后重启 Web；
-2. 打开 Settings → Memory → Model，确认列表与 DSH Models 页面一致，保存一个 route 后刷新仍保持选择；
-3. 在 Sessions 左栏切换两个 Workspace，确认右侧只显示所选 Workspace 的 Session；同名 Workspace 不合并，无归属 Session 仍可从“未归属”查看；
-4. 确认已有 DSH 标题作为主标题显示，无标题 Session 显示本地化占位，Session id 仍作为次要信息；
-5. 选择“可以整理”的 Session 并触发整理；
-6. 若失败，复制页面显示的 `$DSH_HOME/memory/debug/<review-id>/attempt-<n>.jsonl` 路径，按 `stage` 从后往前查看错误的 `name`、`message`、`code`、`cause` 和 `stack`；
-7. 对长 Session，确认 debug 的 `sourceEventBytes`、`evidenceBytes` 和 `workerInputBytes` 明显反映筛选效果；超过 `maxInputBytes` 时显示 `evidence-too-large`，且不会创建 worker Agent；
-8. 确认 `provider-failed` 对应 `agent-error`，而装配、flush 或 dispose 问题显示为 `internal-error`；
-9. 确认 debug 文件没有 source event、memory/proposal 正文或 API key。
-10. 打开新 worker Session，确认 DSH 原生历史可以读取；返回 Memory Sessions 页面后确认该 worker 不出现在可整理候选中。
+2. 打开 Settings → Memory → 设置，确认列表与 DSH Models 页面一致，保存一个 route 后刷新仍保持选择；
+3. 确认“记录详细调试日志”默认关闭；关闭时触发一次整理不会创建新的 debug 文件，开启并保存后新 attempt 会写入日志；
+4. 在“会话整理”左栏切换两个 Workspace，确认右侧只显示所选 Workspace 的 Session；同名 Workspace 不合并，无归属 Session 仍可从“未归属”查看；
+5. 确认已有 DSH 标题作为主标题显示，无标题 Session 显示本地化占位，Session id 仍作为次要信息；
+6. 选择“可以整理”的 Session 并触发整理；
+7. 开启 Debug 后若整理失败，复制页面显示的 `$DSH_HOME/memory/debug/<review-id>/attempt-<n>.jsonl` 路径，按 `stage` 从后往前查看错误的 `name`、`message`、`code`、`cause` 和 `stack`；
+8. 对长 Session，确认 debug 的 `sourceEventBytes`、`evidenceBytes` 和 `workerInputBytes` 明显反映筛选效果；超过 `maxInputBytes` 时显示 `evidence-too-large`，且不会创建 worker Agent；
+9. 确认 `provider-failed` 对应 `agent-error`，而装配、flush 或 dispose 问题显示为 `internal-error`；
+10. 确认 debug 文件没有 source event、memory/proposal 正文或 API key。
+11. 触发新的整理 attempt 后，确认 DSH 原生 Session 页创建或复用 `Memory Consolidation` Workspace，worker 出现在其中而不是 source Workspace 或“未分组”；其物理日志使用 `$DSH_HOME/memory/consolidator-workspace` 派生的 Session 目录。打开该 worker 确认历史可读，再返回 Memory 会话整理页面确认整个 `Memory Consolidation` Workspace 不显示，其中任意 Session 都不能通过直接 RPC 整理。既有 worker Session 不自动迁移。
+12. 选择一个 DSH 声明较低 `defaultMaxTokens` 的模型和一个较高或未知上限的模型分别整理；开启 Debug 时确认 `worker-model-budget-resolved` 的 `effectiveMaxTokens` 前者不超过模型上限，后者不超过插件的 8192 ceiling。
 
 Host entry 受 Node ESM module cache 影响，修改后必须重启 Web。Client bundle 变更需要重建、重新安装并刷新页面。
 

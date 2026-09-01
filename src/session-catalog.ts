@@ -23,6 +23,7 @@ export class SessionCatalog {
       readonly live?: MemorySessionProjections
       readonly cached?: MemorySessionProjectionCache
     } = () => ({}),
+    private readonly excludeCwd: (cwd: string | undefined) => boolean = () => false,
   ) {}
 
   /** Observe each snapshot twice and classify only unchanged, non-live Sessions as eligible. */
@@ -34,7 +35,8 @@ export class SessionCatalog {
 
     const secondById = groupById(second)
     const duplicateFirstIds = duplicateIds(first)
-    const unique = uniqueById(first).filter(snapshot => !isConsolidationWorkerSessionId(snapshot.header.id))
+    const unique = uniqueById(first).filter(snapshot => !isConsolidationWorkerSessionId(snapshot.header.id)
+      && !this.excludeCwd(snapshot.header.cwd))
     const latestReceipts = this.receipts?.latestBySourceSessions(new Map(
       unique.map(snapshot => [snapshot.header.id, snapshot.revision]),
     ))

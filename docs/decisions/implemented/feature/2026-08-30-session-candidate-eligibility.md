@@ -10,6 +10,8 @@ Build a read-only Host catalog from two consecutive `SessionPersistence.listSnap
 
 Return all first-observation Sessions to the Browser with an explicit eligibility result and one closed reason vocabulary: `live`, `missing-cwd`, `workspace-unavailable`, or `unstable`. Check liveness before other reasons so a currently running Session is never presented as eligible. Do not return cwd, source revision, or backend location. Until M3 creates receipts, return `latestReceipt: null` explicitly.
 
+The later [dedicated consolidation Session Workspace decision](../architecture/2026-09-01-dedicated-consolidation-session-workspace.md) adds one controlled omission: Sessions in the plugin-owned operational cwd are excluded before classification and are also rejected by Host preparation.
+
 ## Alternatives considered
 
 - Scan `.dsh` JSONL files. This would couple the plugin to one persistence backend and bypass validated logical storage APIs.

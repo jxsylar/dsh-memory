@@ -1,4 +1,4 @@
-/** Settings section for Global, Workspace, Session, and consolidation-model management. */
+/** Settings section for Global Memory, Workspace Memory, Session Consolidation, and preferences. */
 
 import { useCallback, useEffect, useState } from 'react'
 import type {
@@ -38,6 +38,7 @@ export interface MemoryApi {
     expectedRevision: MemoryRevision
     provider: string
     model: string
+    debugEnabled: boolean
   }, signal?: AbortSignal): Promise<ConsolidationModelSelectResponse>
 }
 
@@ -48,12 +49,12 @@ export interface MemorySectionInjected {
   readonly t: MemoryTranslate
 }
 
-type Tab = 'global' | 'workspaces' | 'sessions' | 'models'
+type Tab = 'global' | 'workspaces' | 'sessions' | 'settings'
 type MemoryButtonVariant = 'default' | 'primary' | 'danger' | 'tab' | 'workspace'
 type ErrorState =
   | { readonly kind: 'global-conflict' }
   | { readonly kind: 'workspace-conflict' }
-  | { readonly kind: 'model-conflict' }
+  | { readonly kind: 'settings-conflict' }
   | { readonly kind: 'message'; readonly value: string }
 
 export interface WorkspaceDraftRecord extends WorkspaceRecordView {
@@ -68,6 +69,13 @@ export interface SessionWorkspaceGroup {
   readonly workspaceId: WorkspaceId | null
   readonly workspaceName: string | null
   readonly sessions: SessionSummary[]
+}
+
+/** Format a Session timestamp as a compact local date and minute. */
+export function formatSessionCreatedAt(createdAt: number): string {
+  const date = new Date(createdAt)
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
 const UNASSIGNED_SESSION_WORKSPACE = 'unassigned'
@@ -210,6 +218,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   const [modelCatalog, setModelCatalog] = useState<ConsolidationModelCatalogResponse>()
   const [modelProvider, setModelProvider] = useState('')
   const [modelName, setModelName] = useState('')
+  const [debugEnabled, setDebugEnabled] = useState(false)
   const [error, setError] = useState<ErrorState>()
   const workspaceChanges = workspace === undefined ? [] : buildWorkspaceChanges(workspace.records, workspaceDrafts)
   const workspaceDirty = workspaceChanges.length > 0
@@ -218,6 +227,11 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
   const selectedSessionWorkspace = sessionWorkspaceGroups.find(group => group.key === selectedSessionWorkspaceKey)
     ?? sessionWorkspaceGroups[0]
   const selectedModelProvider = modelCatalog?.providers.find(provider => provider.id === modelProvider)
+  const settingsDirty = modelCatalog !== undefined && (
+    modelProvider !== modelCatalog.selection.provider
+    || modelName !== modelCatalog.selection.model
+    || debugEnabled !== modelCatalog.debugEnabled
+  )
 
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (!props.loopback) return
@@ -345,6 +359,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       setModelCatalog(catalog)
       setModelProvider(catalog.selection.provider)
       setModelName(catalog.selection.model)
+      setDebugEnabled(catalog.debugEnabled)
     } catch (cause: unknown) {
       if (!signal?.aborted) setError({ kind: 'message', value: cause instanceof Error ? cause.message : String(cause) })
     } finally {
@@ -352,7 +367,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
     }
   }
 
-  const saveModel = async (): Promise<void> => {
+  const saveSettings = async (): Promise<void> => {
     if (modelCatalog === undefined || modelProvider === '' || modelName === '') return
     setModelBusy(true)
     setError(undefined)
@@ -361,9 +376,10 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
         expectedRevision: modelCatalog.revision,
         provider: modelProvider,
         model: modelName,
+        debugEnabled,
       })
       if (result.status === 'conflict') {
-        setError({ kind: 'model-conflict' })
+        setError({ kind: 'settings-conflict' })
         return
       }
       await refreshModels()
@@ -379,14 +395,14 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
     setError(undefined)
     if (next === 'workspaces' && tab !== 'workspaces' && workspaces.length === 0) void refreshWorkspaces()
     if (next === 'sessions' && tab !== 'sessions' && sessions === undefined) void refreshSessions()
-    if (next === 'models' && tab !== 'models' && modelCatalog === undefined) void refreshModels()
+    if (next === 'settings' && tab !== 'settings' && modelCatalog === undefined) void refreshModels()
   }
 
   const refreshVisible = async (): Promise<void> => {
     await refresh()
     if (tab === 'workspaces') await refreshWorkspaces()
     if (tab === 'sessions') await refreshSessions()
-    if (tab === 'models') await refreshModels()
+    if (tab === 'settings') await refreshModels()
   }
 
   const updateWorkspaceDraft = (
@@ -471,7 +487,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       </div>
 
       <nav style={memorySectionStyles.tabs} aria-label={t('sections')}>
-        {(['global', 'workspaces', 'sessions', 'models'] as const).map(id => (
+        {(['global', 'workspaces', 'sessions', 'settings'] as const).map(id => (
           <MemoryButton
             key={id}
             type="button"
@@ -490,14 +506,15 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
             ? t('conflict')
             : error.kind === 'workspace-conflict'
               ? t('workspaceConflict')
-              : error.kind === 'model-conflict'
-                ? t('modelConflict')
+              : error.kind === 'settings-conflict'
+                ? t('settingsConflict')
               : error.value}
         </p>
       )}
 
       {tab === 'global' ? (
         <div style={memorySectionStyles.panel}>
+          <p style={memorySectionStyles.subtitle}>{t('globalHelp')}</p>
           <label htmlFor="dsh-memory-global"><strong>GLOBAL.md</strong></label>
           <textarea
             id="dsh-memory-global"
@@ -513,7 +530,9 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
           </div>
         </div>
       ) : tab === 'workspaces' ? (
-        <div style={memorySectionStyles.workspaceLayout}>
+        <div style={memorySectionStyles.panel}>
+          <p style={memorySectionStyles.subtitle}>{t('workspaceHelp')}</p>
+          <div style={memorySectionStyles.workspaceLayout}>
           <aside style={memorySectionStyles.workspaceList} aria-label={t('workspaceList')}>
             <strong>{t('workspaceList')}</strong>
             {workspaceBusy && workspaces.length === 0 ? <p>{t('loading')}</p> : null}
@@ -645,6 +664,7 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
               </>
             )}
           </div>
+          </div>
         </div>
       ) : tab === 'sessions' ? (
         <div style={memorySectionStyles.sessionPanel}>
@@ -704,30 +724,32 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
                           </span>
                         </header>
                         <div style={memorySectionStyles.sessionMeta}>
-                          <span>{t('sessionCreatedAt', { value: new Date(session.createdAt).toISOString() })}</span>
+                          <span>{t('sessionCreatedAt', { value: formatSessionCreatedAt(session.createdAt) })}</span>
                           <span>{session.latestReceipt === null
                             ? t('sessionNoReceipt')
                             : t(session.latestReceipt.current ? 'sessionReceiptCurrent' : 'sessionReceiptOlder', {
                               state: t(sessionReceiptStateKey(session.latestReceipt.state)),
-                              attempt: session.latestReceipt.attempt,
                             })}</span>
-                          {session.latestReceipt === null ? null : (
-                            <span style={memorySectionStyles.debugPath}>{t('sessionDebugLog', {
-                              reviewId: session.latestReceipt.reviewId,
-                              attempt: session.latestReceipt.attempt,
-                            })}</span>
-                          )}
                         </div>
                         {consolidationResult?.sessionId === session.sessionId
                           ? <>
-                              <p style={memorySectionStyles.sessionResult}>{t('sessionConsolidationResult', {
-                                state: t(sessionReceiptStateKey(consolidationResult.result.status)),
-                                count: consolidationResult.result.changeCount,
-                              })}</p>
-                              <code style={memorySectionStyles.debugPath}>{t('sessionDebugLog', {
-                                reviewId: consolidationResult.result.reviewId,
-                                attempt: consolidationResult.result.attempt,
-                              })}</code>
+                              <p style={memorySectionStyles.sessionResult}>{consolidationResult.result.recovered
+                                ? t('sessionConsolidationRecovered', {
+                                  state: t(sessionReceiptStateKey(consolidationResult.result.status)),
+                                })
+                                : consolidationResult.result.status === 'committed'
+                                  ? t('sessionConsolidationCommitted', { count: consolidationResult.result.changeCount })
+                                  : consolidationResult.result.status === 'no-change'
+                                    ? t('sessionConsolidationNoChange')
+                                    : t('sessionConsolidationResult', {
+                                      state: t(sessionReceiptStateKey(consolidationResult.result.status)),
+                                    })}</p>
+                              {consolidationResult.result.debugLoggingEnabled
+                                ? <code style={memorySectionStyles.debugPath}>{t('sessionDebugLog', {
+                                    reviewId: consolidationResult.result.reviewId,
+                                    attempt: consolidationResult.result.attempt,
+                                  })}</code>
+                                : null}
                             </>
                           : null}
                         {session.eligible ? (
@@ -753,9 +775,13 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
       ) : (
         <div style={memorySectionStyles.modelPanel}>
           <div>
+            <h3 style={memorySectionStyles.workspaceTitle}>{t('settingsTitle')}</h3>
+            <p style={memorySectionStyles.subtitle}>{t('settingsHelp')}</p>
+          </div>
+          <section style={memorySectionStyles.settingsGroup}>
             <h3 style={memorySectionStyles.workspaceTitle}>{t('modelSettingsTitle')}</h3>
             <p style={memorySectionStyles.subtitle}>{t('modelSettingsHelp')}</p>
-          </div>
+          </section>
           {modelBusy && modelCatalog === undefined ? <p>{t('loading')}</p> : null}
           {modelCatalog?.available === false ? <p style={memorySectionStyles.validation}>{t('modelCatalogUnavailable')}</p> : null}
           {modelCatalog?.available === true && modelCatalog.providers.length === 0
@@ -808,15 +834,29 @@ export function MemorySection(props: MemorySectionInjected): React.JSX.Element {
             provider: modelCatalog?.selection.provider ?? '—',
             model: modelCatalog?.selection.model ?? '—',
           })}</p>
-          <p style={memorySectionStyles.muted}>{t('debugLocation')}</p>
+          <section style={memorySectionStyles.settingsGroup}>
+            <label style={memorySectionStyles.toggleRow}>
+              <input
+                type="checkbox"
+                checked={debugEnabled}
+                disabled={modelBusy || modelCatalog === undefined}
+                onChange={event => { setDebugEnabled(event.target.checked) }}
+              />
+              <span>
+                <strong>{t('debugEnabled')}</strong>
+                <small style={memorySectionStyles.settingHelp}>{t('debugHelp')}</small>
+              </span>
+            </label>
+            {debugEnabled ? <p style={memorySectionStyles.muted}>{t('debugLocation')}</p> : null}
+          </section>
           <div style={memorySectionStyles.actions}>
             <MemoryButton
               variant="primary"
               style={memorySectionStyles.primaryButton}
-              disabled={modelBusy || modelCatalog?.available !== true || modelProvider === '' || modelName === ''}
-              onClick={() => { void saveModel() }}
+              disabled={modelBusy || !settingsDirty || modelProvider === '' || modelName === ''}
+              onClick={() => { void saveSettings() }}
             >
-              {t('saveModel')}
+              {t('saveSettings')}
             </MemoryButton>
           </div>
         </div>
@@ -856,6 +896,9 @@ export const memorySectionStyles: Record<string, React.CSSProperties> = {
   debugPath: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' },
   modelPanel: { display: 'grid', gap: 16, width: '100%', maxWidth: 720, minWidth: 0 },
   modelFields: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: 12, minWidth: 0 },
+  settingsGroup: { display: 'grid', gap: 8, paddingTop: 4, minWidth: 0 },
+  toggleRow: { display: 'flex', gap: 10, alignItems: 'flex-start', padding: 12, border: '1px solid rgba(127,127,127,0.3)', borderRadius: 10, cursor: 'pointer' },
+  settingHelp: { display: 'block', marginTop: 4, opacity: 0.68, lineHeight: 1.45 },
   workspaceLayout: { display: 'flex', flexWrap: 'wrap', gap: 16, width: '100%', maxWidth: '100%', minWidth: 0, alignItems: 'flex-start' },
   workspaceList: { display: 'grid', gap: 8, flex: '1 1 180px', maxWidth: '100%', minWidth: 0 },
   workspaceButton: { display: 'grid', gap: 4, width: '100%', minWidth: 0, padding: 12, textAlign: 'left', border: '1px solid rgba(127,127,127,0.3)', borderRadius: 8, background: 'transparent', color: 'inherit', cursor: 'pointer', transition: 'background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease, filter 140ms ease' },

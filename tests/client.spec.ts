@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { apply, inject, type BrowserContext } from '../src/client/index.ts'
 import {
   buildWorkspaceChanges,
+  formatSessionCreatedAt,
   groupSessionsByWorkspace,
   memoryButtonDisabledStyle,
   memoryButtonHoverStyles,
@@ -58,6 +59,20 @@ describe('Browser locale integration', () => {
     active = 'zh'
     expect(registration?.label()).toBe('记忆')
     expect(ctx.locale.bind('settings.memory')('bytes', { count: 12 })).toBe('12 字节')
+    expect(zh.globalTab).toBe('全局记忆')
+    expect(zh.workspacesTab).toBe('工作区记忆')
+    expect(zh.sessionsTab).toBe('会话整理')
+    expect(zh.settingsTab).toBe('设置')
+    expect(zh.sessionReceiptCurrent).toBe('上次整理：{state}')
+    expect(zh.sessionConsolidationNoChange).toBe('整理完成：没有发现新的长期记忆')
+    expect(zh.sessionConsolidationRecovered).toBe('无需重复整理：{state}')
+  })
+})
+
+describe('Session presentation', () => {
+  it('formats creation timestamps without seconds or wire-format timezone syntax', () => {
+    const createdAt = new Date(2026, 7, 30, 16, 50, 2, 136).getTime()
+    expect(formatSessionCreatedAt(createdAt)).toBe('2026-08-30 16:50')
   })
 })
 
@@ -156,12 +171,14 @@ describe('Memory Workspace Browser API', () => {
                 reviewId: `review-${'a'.repeat(64)}`,
                 attempt: 1,
                 changeCount: 0,
+                debugLoggingEnabled: false,
               } }
             }
             if (endpoint === 'models/read') {
               return { ok: true, value: {
                 available: true,
                 selection: { provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+                debugEnabled: false,
                 revision: 'sha256:models',
                 providers: [{ id: 'deepseek-official', name: 'DeepSeek', models: [{
                   id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash',
@@ -211,6 +228,7 @@ describe('Memory Workspace Browser API', () => {
     expect(models).toMatchObject({ selection: { provider: 'deepseek-official' } })
     await expect(api.selectModel({
       expectedRevision: models.revision, provider: 'deepseek-official', model: 'deepseek-v4-flash',
+      debugEnabled: true,
     })).resolves.toEqual({ status: 'committed', revision: 'sha256:selected' })
     expect(calls).toEqual([
       { endpoint: 'workspaces/list', payload: {} },
@@ -228,7 +246,12 @@ describe('Memory Workspace Browser API', () => {
       { endpoint: 'models/read', payload: {} },
       {
         endpoint: 'models/select',
-        payload: { expectedRevision: 'sha256:models', provider: 'deepseek-official', model: 'deepseek-v4-flash' },
+        payload: {
+          expectedRevision: 'sha256:models',
+          provider: 'deepseek-official',
+          model: 'deepseek-v4-flash',
+          debugEnabled: true,
+        },
       },
     ])
   })
