@@ -101,6 +101,7 @@ async function setup(events: readonly unknown[] = [
     async loadRecoveryPlan(_workerSessionId, _receipt, workspace) {
       return parseConsolidationProposal(validProposal(), {
         sourceEvidence: inputEvidence(events),
+        global: await store.readGlobal(),
         workspace,
       })
     },

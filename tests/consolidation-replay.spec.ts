@@ -73,7 +73,7 @@ async function fixture(): Promise<{
       {
         type: 'tool/call',
         seq: 1,
-        data: { name: CONSOLIDATION_PROPOSAL_TOOL, arguments: JSON.stringify(proposal) },
+        data: { name: CONSOLIDATION_PROPOSAL_TOOL, arguments: JSON.stringify({ final: true, ...proposal }) },
       },
     ],
   }
@@ -101,7 +101,10 @@ describe('WorkerSessionPlanReplay', () => {
       workspaceKey: input.workspace.scope.key,
       beforeRevision: input.workspace.revision,
       plannedAfterRevision: consolidator.planProposal(input, JSON.parse(
-        ((events[1] as { data: { arguments: string } }).data.arguments),
+        (() => {
+          const value = JSON.parse((events[1] as { data: { arguments: string } }).data.arguments)
+          return JSON.stringify({ outcome: value.outcome, changes: value.changes })
+        })(),
       )).preview.revision,
       state: 'committing',
       attempts: [{
@@ -130,7 +133,7 @@ describe('WorkerSessionPlanReplay', () => {
     }, consolidator).loadPlan('worker', input)
 
     await expect(load(events.filter((_, index) => index !== 0))).rejects.toBeInstanceOf(ConsolidationReplayError)
-    await expect(load([...events, events[1]])).rejects.toThrow(/exactly one proposal/)
+    await expect(load([...events, events[1]])).rejects.toThrow(/exactly one final proposal/)
     const malformed = structuredClone(events) as Array<{ type: string; data: Record<string, unknown> }>
     malformed[1]!.data.arguments = '{'
     await expect(load(malformed)).rejects.toThrow(/valid JSON/)

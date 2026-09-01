@@ -43,7 +43,7 @@ export interface ConsolidationReceiptAttempt {
 }
 
 export interface ConsolidationReceiptChange {
-  readonly action: 'put' | 'delete'
+  readonly action: 'replace-global' | 'put' | 'delete'
   readonly name: string
   readonly type?: 'feedback' | 'project' | 'reference'
   readonly evidence: readonly ConsolidationEvidenceRange[]
@@ -228,8 +228,12 @@ export class ConsolidationCommitCoordinator {
 
     await this.consolidator.assertSourceStable(request.input, request.signal)
     request.signal?.throwIfAborted()
-    const current = await this.memory.readWorkspace(request.input.workspace.scope)
-    if (current.revision !== request.input.workspace.revision) {
+    const [currentGlobal, current] = await Promise.all([
+      this.memory.readGlobal(),
+      this.memory.readWorkspace(request.input.workspace.scope),
+    ])
+    if (currentGlobal.revision !== request.input.global.revision
+      || current.revision !== request.input.workspace.revision) {
       return this.finishConflict(createReceipt(request, this.receipts.timestamp(), existing))
     }
 
@@ -250,15 +254,17 @@ export class ConsolidationCommitCoordinator {
     target: WorkspaceTarget,
     plan?: ConsolidationProposalPlan,
   ): Promise<ConsolidationCommitResult> {
-    const current = await this.memory.readWorkspace(target)
-    if (current.revision === receipt.plannedAfterRevision) {
+    if (plan === undefined) throw new ConsolidationReceiptError('Recovery plan is required')
+    assertRecoveryPlanMatchesReceipt(receipt, plan)
+    const [global, current] = await Promise.all([this.memory.readGlobal(), this.memory.readWorkspace(target)])
+    const globalKnown = global.revision === plan.globalBefore.revision || global.revision === plan.globalPreview.revision
+    const workspaceKnown = current.revision === receipt.beforeRevision || current.revision === receipt.plannedAfterRevision
+    if (!globalKnown || !workspaceKnown) return this.finishConflict(receipt, true)
+    if (global.revision === plan.globalPreview.revision && current.revision === receipt.plannedAfterRevision) {
       const completed = completeReceipt(receipt, 'committed', this.receipts.timestamp())
       this.receipts.write(completed)
       return { outcome: 'committed', recovered: true, receipt: completed }
     }
-    if (current.revision !== receipt.beforeRevision) return this.finishConflict(receipt, true)
-    if (plan === undefined) throw new ConsolidationReceiptError('Recovery plan is required before replaying the Workspace commit')
-    assertRecoveryPlanMatchesReceipt(receipt, plan)
     return this.publish(receipt, target, plan, true)
   }
 
@@ -269,13 +275,37 @@ export class ConsolidationCommitCoordinator {
     recovered: boolean,
   ): Promise<ConsolidationCommitResult> {
     try {
-      const committed = await this.memory.commitWorkspace({
-        scope: target,
-        expectedRevision: receipt.beforeRevision,
-        changes: plan.proposal.changes.map(toWorkspaceChange),
-      })
-      if (committed.revision !== receipt.plannedAfterRevision) {
-        throw new ConsolidationReceiptError('Workspace commit revision does not match the durable plan')
+      const currentGlobal = await this.memory.readGlobal()
+      if (currentGlobal.revision !== plan.globalBefore.revision
+        && currentGlobal.revision !== plan.globalPreview.revision) {
+        throw new MemoryConflictError(currentGlobal.revision)
+      }
+      if (plan.globalPreview.changed && currentGlobal.revision === plan.globalBefore.revision) {
+        const committed = await this.memory.commitGlobal({
+          expectedRevision: plan.globalBefore.revision,
+          content: plan.globalPreview.content,
+        })
+        if (committed.revision !== plan.globalPreview.revision) {
+          throw new ConsolidationReceiptError('Global commit revision does not match the durable plan')
+        }
+      }
+      const workspaceChanges = plan.proposal.changes.flatMap(change => (
+        isWorkspaceProposalChange(change) ? [toWorkspaceChange(change)] : []
+      ))
+      const currentWorkspace = await this.memory.readWorkspace(target)
+      if (currentWorkspace.revision !== receipt.beforeRevision
+        && currentWorkspace.revision !== receipt.plannedAfterRevision) {
+        throw new MemoryConflictError(currentWorkspace.revision)
+      }
+      if (workspaceChanges.length > 0 && currentWorkspace.revision === receipt.beforeRevision) {
+        const committed = await this.memory.commitWorkspace({
+          scope: target,
+          expectedRevision: receipt.beforeRevision,
+          changes: workspaceChanges,
+        })
+        if (committed.revision !== receipt.plannedAfterRevision) {
+          throw new ConsolidationReceiptError('Workspace commit revision does not match the durable plan')
+        }
       }
       const completed = completeReceipt(receipt, 'committed', this.receipts.timestamp())
       this.receipts.write(completed)
@@ -391,6 +421,7 @@ function assertPlanMatchesReceipt(receipt: ConsolidationReceipt, request: Consol
   if (receipt.reviewId !== request.input.reviewId
     || receipt.beforeRevision !== request.input.workspace.revision
     || receipt.plannedAfterRevision !== request.plan.preview.revision
+    || request.plan.globalBefore.revision !== request.input.global.revision
     || receipt.proposalHash !== proposalHash(request.plan)) {
     throw new ConsolidationReceiptError('Recovery plan does not match the committing receipt')
   }
@@ -404,6 +435,14 @@ function assertRecoveryPlanMatchesReceipt(receipt: ConsolidationReceipt, plan: C
 }
 
 function summarizeChange(change: ConsolidationProposalChange): ConsolidationReceiptChange {
+  if (change.action === 'replace-global') {
+    return {
+      action: 'replace-global',
+      name: 'GLOBAL.md',
+      evidence: change.evidence.map(range => ({ ...range })),
+      contentHash: `sha256:${createHash('sha256').update(change.content, 'utf8').digest('hex')}`,
+    }
+  }
   if (change.action === 'delete') {
     return { action: 'delete', name: change.name, evidence: change.evidence.map(range => ({ ...range })) }
   }
@@ -416,10 +455,16 @@ function summarizeChange(change: ConsolidationProposalChange): ConsolidationRece
   }
 }
 
-function toWorkspaceChange(change: ConsolidationProposalChange): WorkspaceMemoryChange {
+function toWorkspaceChange(change: Exclude<ConsolidationProposalChange, { action: 'replace-global' }>): WorkspaceMemoryChange {
   return change.action === 'put'
     ? { action: 'put', record: change.record }
     : { action: 'delete', name: change.name }
+}
+
+function isWorkspaceProposalChange(
+  change: ConsolidationProposalChange,
+): change is Exclude<ConsolidationProposalChange, { action: 'replace-global' }> {
+  return change.action !== 'replace-global'
 }
 
 function serializeReceipt(receipt: ConsolidationReceipt): string {
@@ -506,13 +551,23 @@ function parseChangeSummary(value: unknown, index: number): ConsolidationReceipt
   const record = requireObject(value, `changes[${index}]`)
   const expected = record.action === 'put'
     ? ['action', 'name', 'type', 'evidence', 'contentHash']
+    : record.action === 'replace-global'
+      ? ['action', 'name', 'evidence', 'contentHash']
     : ['action', 'name', 'evidence']
   requireExactKeys(record, expected, `changes[${index}]`)
-  if (record.action !== 'put' && record.action !== 'delete') throw new ConsolidationReceiptError(`changes[${index}].action is invalid`)
+  if (record.action !== 'replace-global' && record.action !== 'put' && record.action !== 'delete') {
+    throw new ConsolidationReceiptError(`changes[${index}].action is invalid`)
+  }
   if (typeof record.name !== 'string' || record.name === '') throw new ConsolidationReceiptError(`changes[${index}].name is invalid`)
   if (!Array.isArray(record.evidence)) throw new ConsolidationReceiptError(`changes[${index}].evidence is invalid`)
   const evidence = record.evidence.map((range, rangeIndex) => parseEvidenceRange(range, `changes[${index}].evidence[${rangeIndex}]`))
   if (record.action === 'delete') return { action: 'delete', name: record.name, evidence }
+  if (record.action === 'replace-global') {
+    if (record.name !== 'GLOBAL.md' || typeof record.contentHash !== 'string' || !record.contentHash.startsWith('sha256:')) {
+      throw new ConsolidationReceiptError(`changes[${index}] Global summary is invalid`)
+    }
+    return { action: 'replace-global', name: 'GLOBAL.md', evidence, contentHash: record.contentHash }
+  }
   if (record.type !== 'feedback' && record.type !== 'project' && record.type !== 'reference') {
     throw new ConsolidationReceiptError(`changes[${index}].type is invalid`)
   }

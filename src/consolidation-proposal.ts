@@ -2,7 +2,10 @@
 
 import {
   MemoryValidationError,
+  previewGlobalMemory,
   previewWorkspaceChanges,
+  type GlobalMemoryPreview,
+  type GlobalMemoryView,
   type WorkspaceMemory,
   type WorkspaceMemoryChange,
   type WorkspaceMemoryPreview,
@@ -19,6 +22,11 @@ export interface ConsolidationEvidenceRange {
 
 /** One validated model-proposed Workspace change with source evidence. */
 export type ConsolidationProposalChange =
+  | {
+      readonly action: 'replace-global'
+      readonly content: string
+      readonly evidence: readonly ConsolidationEvidenceRange[]
+    }
   | {
       readonly action: 'put'
       readonly record: WorkspaceMemory
@@ -38,6 +46,8 @@ export type ConsolidationProposal =
 /** Canonical proposal plus the exact Workspace generation it would produce. */
 export interface ConsolidationProposalPlan {
   readonly proposal: ConsolidationProposal
+  readonly globalBefore: GlobalMemoryView
+  readonly globalPreview: GlobalMemoryPreview
   readonly preview: WorkspaceMemoryPreview
 }
 
@@ -54,6 +64,7 @@ export function parseConsolidationProposal(
   value: unknown,
   input: {
     readonly sourceEvidence: readonly ConsolidationEvidenceTurn[]
+    readonly global: GlobalMemoryView
     readonly workspace: WorkspaceMemoryView
   },
 ): ConsolidationProposalPlan {
@@ -68,6 +79,8 @@ export function parseConsolidationProposal(
     }
     return {
       proposal: { outcome: 'no-change', changes: [] },
+      globalBefore: { ...input.global },
+      globalPreview: unchangedGlobalPreview(input.global),
       preview: unchangedPreview(input.workspace),
     }
   }
@@ -82,7 +95,7 @@ export function parseConsolidationProposal(
   const changes = candidate.changes.map((change, index) => parseChange(change, index, allowedEvidence))
   const names = new Set<string>()
   for (const change of changes) {
-    const name = change.action === 'put' ? change.record.name : change.name
+    const name = change.action === 'replace-global' ? '@global' : change.action === 'put' ? change.record.name : change.name
     if (names.has(name)) {
       throw new ConsolidationProposalError(`proposal.changes contains more than one change for ${name}`)
     }
@@ -90,19 +103,26 @@ export function parseConsolidationProposal(
   }
   changes.sort(compareChanges)
 
+  const globalChange = changes.find(change => change.action === 'replace-global')
+  const globalPreview = globalChange?.action === 'replace-global'
+    ? previewGlobalMemory(input.global, globalChange.content)
+    : unchangedGlobalPreview(input.global)
   let preview: WorkspaceMemoryPreview
   try {
-    preview = previewWorkspaceChanges(input.workspace, changes.map(toMemoryChange))
+    const workspaceChanges = changes.filter(isWorkspaceChange).map(toMemoryChange)
+    preview = workspaceChanges.length === 0
+      ? unchangedPreview(input.workspace)
+      : previewWorkspaceChanges(input.workspace, workspaceChanges)
   } catch (cause: unknown) {
     if (cause instanceof MemoryValidationError) {
       throw new ConsolidationProposalError(`proposal changes are invalid: ${cause.message}`, { cause })
     }
     throw cause
   }
-  if (!preview.changed) {
-    return { proposal: { outcome: 'no-change', changes: [] }, preview }
+  if (!globalPreview.changed && !preview.changed) {
+    return { proposal: { outcome: 'no-change', changes: [] }, globalBefore: { ...input.global }, globalPreview, preview }
   }
-  return { proposal: { outcome: 'changes', changes }, preview }
+  return { proposal: { outcome: 'changes', changes }, globalBefore: { ...input.global }, globalPreview, preview }
 }
 
 function parseChange(
@@ -112,6 +132,17 @@ function parseChange(
 ): ConsolidationProposalChange {
   const label = `proposal.changes[${index}]`
   const change = requireRecord(value, label)
+  if (change.action === 'replace-global') {
+    requireExactKeys(change, ['action', 'content', 'evidence'], label)
+    if (typeof change.content !== 'string') {
+      throw new ConsolidationProposalError(`${label}.content must be a string`)
+    }
+    return {
+      action: 'replace-global',
+      content: change.content,
+      evidence: parseEvidence(change.evidence, `${label}.evidence`, allowedEvidence),
+    }
+  }
   if (change.action === 'put') {
     requireExactKeys(change, ['action', 'record', 'evidence'], label)
     return {
@@ -131,7 +162,7 @@ function parseChange(
       evidence: parseEvidence(change.evidence, `${label}.evidence`, allowedEvidence),
     }
   }
-  throw new ConsolidationProposalError(`${label}.action must be put or delete`)
+  throw new ConsolidationProposalError(`${label}.action must be replace-global, put, or delete`)
 }
 
 function parseRecord(value: unknown, label: string): WorkspaceMemory {
@@ -196,16 +227,27 @@ function rangeKey(fromSeq: number, toSeq: number): string {
 }
 
 function compareChanges(left: ConsolidationProposalChange, right: ConsolidationProposalChange): number {
+  if (left.action === 'replace-global' || right.action === 'replace-global') {
+    return left.action === right.action ? 0 : left.action === 'replace-global' ? -1 : 1
+  }
   if (left.action !== right.action) return left.action === 'delete' ? -1 : 1
   const leftName = left.action === 'put' ? left.record.name : left.name
   const rightName = right.action === 'put' ? right.record.name : right.name
   return leftName.localeCompare(rightName, 'en')
 }
 
-function toMemoryChange(change: ConsolidationProposalChange): WorkspaceMemoryChange {
+function isWorkspaceChange(change: ConsolidationProposalChange): change is Exclude<ConsolidationProposalChange, { action: 'replace-global' }> {
+  return change.action !== 'replace-global'
+}
+
+function toMemoryChange(change: Exclude<ConsolidationProposalChange, { action: 'replace-global' }>): WorkspaceMemoryChange {
   return change.action === 'put'
     ? { action: 'put', record: change.record }
     : { action: 'delete', name: change.name }
+}
+
+function unchangedGlobalPreview(global: GlobalMemoryView): GlobalMemoryPreview {
+  return { ...global, changed: false }
 }
 
 function unchangedPreview(workspace: WorkspaceMemoryView): WorkspaceMemoryPreview {

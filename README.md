@@ -5,7 +5,7 @@
 <h1 align="center">dsh-memory</h1>
 
 <p align="center">
-  DeepSeek Harness 的 Markdown 长期记忆：全局与 Workspace 分层管理，按需渐进式披露。
+  融合 Claude Code 的 Auto Memory 与 Codex 的 Session 记忆整理，为 DeepSeek Harness 提供简单、透明、上下文友好的长期记忆。
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 <div align="center">
 
-[核心能力](#核心能力) · [安装](#安装) · [开始使用](#开始使用) · [数据与隐私](#数据与隐私) · [文档](#文档)
+[设计灵感](#设计灵感claude-code--codex) · [核心能力](#核心能力) · [安装](#安装) · [开始使用](#开始使用) · [数据与隐私](#数据与隐私) · [文档](#文档)
 
 </div>
 
@@ -29,15 +29,26 @@
 
 它不依赖外部记忆数据库或专用记忆服务，也不把所有历史对话塞回上下文：Agent 先看到小型索引，再使用 DSH 已有的文件搜索工具按需读取少量详细记忆。
 
+## 设计灵感：Claude Code × Codex
+
+`dsh-memory` 没有引入向量数据库或独立记忆服务，而是组合了两类已经在 Coding Agent 中得到应用的简单机制：
+
+| 灵感来源 | 借鉴的思路 | dsh-memory 的实现 |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/memory) | 用精简的 `MEMORY.md` 作为索引，详细 Markdown 由 Agent 按需读取 | 自动提供 Global 记忆与当前 Workspace 索引，详细记忆通过 DSH 文件工具渐进式披露 |
+| [Codex](https://learn.chatgpt.com/docs/customization/memories) | 从符合条件的历史 Session 中提取并整理可复用记忆 | 筛选已结束且稳定的 DSH Session，由独立、受限的整理 Agent 提出记忆变化 |
+
+`dsh-memory` 融合了这两种思路：以 Markdown 分层保存和按需披露记忆，并从历史 Session 中持续提炼可复用的信息。
+
 ## 核心能力
 
 | 能力 | 说明 |
 |---|---|
 | 本地 Markdown | 权威记忆保存在 `$DSH_HOME/memory`，用户可以直接阅读和备份 |
 | Global / Workspace 隔离 | Global 保存跨项目偏好；项目事实只进入当前 Workspace |
-| 渐进检索 | 自动注入 Global 与当前 Workspace 索引，详细文件按需打开 |
+| Claude Code 式渐进披露 | 先提供 Global 记忆与当前 Workspace 索引，详细 Markdown 只在相关时按需打开 |
 | 安全写入 | Agent 与 Web UI 使用同一套写入机制，检测到并发修改时拒绝直接覆盖 |
-| 会话整理 | 从已结束且稳定的 DSH Session 中提取候选长期记忆，校验后安全写入 |
+| Codex 式 Session 整理 | 从已结束且稳定的历史 Session 中筛选证据，再由独立整理 Agent 更新 Global 与来源 Workspace 记忆 |
 | 可观察性 | 每次整理保存结果记录；可选 Debug 日志记录阶段和错误链，但不复制对话正文或凭据 |
 | 双语界面 | Memory 页面跟随 DSH Web 的中文或英文 locale |
 
@@ -50,7 +61,7 @@ Agent 请求
 
 已结束的 DSH Session
   └─ 用户手动触发整理
-       └─ 独立的整理 Agent 提出记忆变化
+       └─ 独立的整理 Agent 可多轮检查并提出 Global / 来源 Workspace 记忆变化
             └─ Host 校验证据、记忆归属和数据版本
                  └─ MemoryStore 原子写入并保存结果
 ```
@@ -124,11 +135,11 @@ $DSH_HOME/memory/
 ```
 
 - Web 管理接口只允许本机访问；
-- Web 页面不会接收记忆根目录、绝对路径、cwd 或内部 Workspace key；
+- Web 的记忆写入请求不会提交记忆根目录、绝对路径、cwd 或内部 Workspace key；页面顶部仅为本机诊断显示 Host 返回的记忆根目录；
 - Debug 默认关闭，不记录对话证据、记忆正文、模型提议正文或 API key；
 - `MEMORY.md` 是可重建索引，详细 Markdown 文件才是 Workspace 权威数据。
 
-“本地优先”指权威记忆保存在本机，并不表示所有模型处理都离线完成。正常 Agent 请求会把当前可见的记忆上下文发送给该 Agent 使用的模型；手动 Session 整理会把筛选后的对话内容和当前 Workspace 记忆发送给设置页选择的模型服务商。请根据所用服务商的隐私政策决定是否启用相关功能。
+“本地优先”指权威记忆保存在本机，并不表示所有模型处理都离线完成。正常 Agent 请求会把当前可见的记忆上下文发送给该 Agent 使用的模型；手动 Session 整理会把筛选后的对话内容、Global 记忆和当前 Workspace 记忆发送给设置页选择的模型服务商。请根据所用服务商的隐私政策决定是否启用相关功能。
 
 安全问题请查看 [SECURITY.md](SECURITY.md)。
 

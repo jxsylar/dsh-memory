@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
 import { afterEach, describe, expect, it } from 'vitest'
-import { ConsolidationProposalError } from '../src/consolidation-proposal.ts'
 import {
   CONSOLIDATION_PROPOSAL_TOOL,
   ConsolidationEvidenceTooLargeError,
@@ -114,15 +113,20 @@ class FakeWorkerHost {
     const tool = this.tools.find(candidate => candidate.name === CONSOLIDATION_PROPOSAL_TOOL)
     if (tool === undefined) throw new Error('proposal tool missing')
     let concluded = false
-    const call = (proposal: unknown): void => {
-      this.events.push({ type: 'tool/call', data: { name: tool.name, arguments: JSON.stringify(proposal) } })
-      const result = tool.execute(proposal, { concludeTurn() { concluded = true } })
+    const call = (proposal: unknown, final: boolean): void => {
+      const args = { final, ...(proposal as Record<string, unknown>) }
+      this.events.push({ type: 'tool/call', data: { name: tool.name, arguments: JSON.stringify(args) } })
+      const result = tool.execute(args, { concludeTurn() { concluded = true } })
       this.events.push({ type: 'tool/result', data: result })
     }
-    if (this.behavior.kind === 'valid' || this.behavior.kind === 'invalid') call(this.behavior.proposal)
+    if (this.behavior.kind === 'valid' || this.behavior.kind === 'invalid') call(this.behavior.proposal, true)
     if (this.behavior.kind === 'multiple') {
-      call(this.behavior.proposals[0])
-      call(this.behavior.proposals[1])
+      call(this.behavior.proposals[0], false)
+      const second = await this.preStep?.({ step: 2 }, async () => ({ kind: 'enter', messages: [] }))
+      if (second?.kind !== 'reject') {
+        this.modelRequests += 1
+        call(this.behavior.proposals[1], true)
+      }
     }
     if (!concluded) {
       const second = await this.preStep?.({ step: 2 }, async () => ({ kind: 'enter', messages: [] }))
@@ -141,9 +145,10 @@ async function inputAndConsolidator(): Promise<{
   store.initialize()
   const scope = store.scopeForCwd('/work/worker')
   const workspace = await store.readWorkspace(scope)
+  const global = await store.readGlobal()
   const input: SessionConsolidationInput = {
     reviewId: `review-${'a'.repeat(64)}`,
-    consolidatorVersion: 'm3-turn-evidence-v4',
+    consolidatorVersion: 'm3-multistep-global-v5',
     source: {
       sessionId: 'source-session',
       revision: 'source:a',
@@ -158,6 +163,7 @@ async function inputAndConsolidator(): Promise<{
         tools: [],
       }],
     },
+    global,
     workspace: { scope, ...workspace },
   }
   const consolidator = new SessionConsolidator(store, {
@@ -218,7 +224,7 @@ describe('SessionConsolidationWorker', () => {
     }])
     expect(host.suppressedRuntimeContext).toBe(1)
     expect(host.sections).toMatchObject([{ name: 'dsh-memory:consolidator', complete: true }])
-    expect(host.sections).toMatchObject([{ text: expect.stringContaining('call the tool as soon as you have the smallest useful proposal') }])
+    expect(host.sections).toMatchObject([{ text: expect.stringContaining('Call memory_review_propose as needed') }])
     expect(host.restrictions).toEqual([{ allow: [] }])
     expect(host.tools.map(tool => tool.name)).toEqual([CONSOLIDATION_PROPOSAL_TOOL])
     expect(host.tools[0]?.parameters).toMatchObject({
@@ -228,6 +234,7 @@ describe('SessionConsolidationWorker', () => {
         required: true,
         items: {
           oneOf: [
+            { type: 'object', properties: { action: { const: 'replace-global' }, content: { type: 'string' } } },
             { type: 'object', properties: { action: { const: 'put' }, record: { type: 'object' } } },
             { type: 'object', properties: { action: { const: 'delete' }, name: { type: 'string' } } },
           ],
@@ -240,14 +247,14 @@ describe('SessionConsolidationWorker', () => {
     expect(host.disposed).toBe(1)
 
     const replay = JSON.stringify(host.events)
-    expect(replay).toContain('constrained memory consolidation worker')
+    expect(replay).toContain('consolidate durable memory')
     expect(replay).toContain('source-session')
     expect(replay).toContain('Remember the verification rule.')
     expect(replay).toContain(CONSOLIDATION_PROPOSAL_TOOL)
     expect(replay).toContain('verification-rule')
   })
 
-  it('rejects invalid and repeated submissions without a second model request', async () => {
+  it('allows multiple proposal rounds and requires one accepted final proposal', async () => {
     const { input, consolidator } = await inputAndConsolidator()
     const invalidHost = new FakeWorkerHost({
       kind: 'invalid',
@@ -257,8 +264,8 @@ describe('SessionConsolidationWorker', () => {
       consolidator,
       invalidHost.agents,
       invalidHost.sessions,
-    ).run(input, 1)).rejects.toBeInstanceOf(ConsolidationProposalError)
-    expect(invalidHost.modelRequests).toBe(1)
+    ).run(input, 1)).rejects.toMatchObject({ code: 'missing-proposal' })
+    expect(invalidHost.modelRequests).toBe(2)
     expect(invalidHost.flushes).toHaveLength(1)
     expect(invalidHost.disposed).toBe(1)
 
@@ -270,8 +277,8 @@ describe('SessionConsolidationWorker', () => {
       consolidator,
       multipleHost.agents,
       multipleHost.sessions,
-    ).run(input, 2)).rejects.toMatchObject({ code: 'multiple-proposals' })
-    expect(multipleHost.modelRequests).toBe(1)
+    ).run(input, 2)).resolves.toMatchObject({ plan: { proposal: { outcome: 'changes' } } })
+    expect(multipleHost.modelRequests).toBe(2)
     expect(multipleHost.disposed).toBe(1)
   })
 
@@ -280,7 +287,7 @@ describe('SessionConsolidationWorker', () => {
     const host = new FakeWorkerHost({ kind: 'missing' })
     await expect(new SessionConsolidationWorker(consolidator, host.agents, host.sessions).run(input, 1))
       .rejects.toEqual(expect.objectContaining<Partial<ConsolidationWorkerError>>({ code: 'missing-proposal' }))
-    expect(host.modelRequests).toBe(1)
+    expect(host.modelRequests).toBe(2)
     expect(host.flushes).toHaveLength(1)
     expect(host.disposed).toBe(1)
   })
@@ -349,12 +356,13 @@ describe('SessionConsolidationWorker', () => {
     expect(host.modelRequests).toBe(0)
   })
 
-  it('renders only review identity, source evidence, and Workspace records as dynamic input', async () => {
+  it('renders only review identity, evidence, Global content, and Workspace records as dynamic input', async () => {
     const { input } = await inputAndConsolidator()
     const rendered = renderConsolidationWorkerInput(input)
     expect(rendered).toContain(input.reviewId)
     expect(rendered).toContain(input.source.sessionId)
     expect(rendered).toContain('sourceEvidence')
+    expect(rendered).toContain('globalMemory')
     expect(rendered).toContain('workspaceRecords')
     expect(rendered).not.toContain(input.workspace.scope.key)
     expect(rendered).not.toContain(input.workspace.scope.directory)

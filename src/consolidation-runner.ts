@@ -42,7 +42,7 @@ export interface ConsolidationWorkerDriver {
   run(input: Parameters<SessionConsolidator['planProposal']>[0], attempt: number, signal?: AbortSignal): Promise<ConsolidationWorkerResult>
 }
 
-/** Keep the review lock across the one allowed model request and final commit barrier. */
+/** Keep the review lock across the worker run and final commit barrier. */
 export class SessionConsolidationRunner {
   constructor(
     private readonly consolidator: SessionConsolidator,
@@ -156,9 +156,7 @@ export class SessionConsolidationRunner {
       }
       const target = this.memory.workspaceTargetForKey(receipt.workspaceKey)
       const workspace = await this.memory.readWorkspace(target)
-      const plan = workspace.revision === receipt.beforeRevision
-        ? await this.replay.loadRecoveryPlan(attempt.workerSessionId, receipt, workspace, signal)
-        : undefined
+      const plan = await this.replay.loadRecoveryPlan(attempt.workerSessionId, receipt, workspace, signal)
       return this.commits.recoverReceiptWithinReviewLock(receipt, target, plan)
     })
   }

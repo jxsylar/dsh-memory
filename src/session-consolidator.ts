@@ -23,7 +23,7 @@ import {
 import type { MemoryRevision } from './protocol.ts'
 
 /** Versioned semantics included in every deterministic review identity. */
-export const CONSOLIDATOR_VERSION = 'm3-turn-evidence-v4'
+export const CONSOLIDATOR_VERSION = 'm3-multistep-global-v5'
 
 export type SessionConsolidationErrorCode =
   | 'not-found'
@@ -53,6 +53,10 @@ export interface SessionConsolidationInput {
     readonly createdAt: number
     readonly events: readonly unknown[]
     readonly evidence: readonly ConsolidationEvidenceTurn[]
+  }
+  readonly global: {
+    readonly revision: MemoryRevision
+    readonly content: string
   }
   readonly workspace: {
     readonly scope: WorkspaceScope
@@ -105,7 +109,10 @@ export class SessionConsolidator {
     const inspection = await this.persistence.inspect(sessionId, signal)
     signal?.throwIfAborted()
     assertInspectionMatches(first, inspection)
-    const workspace = await this.store.readWorkspace(scope)
+    const [global, workspace] = await Promise.all([
+      this.store.readGlobal(),
+      this.store.readWorkspace(scope),
+    ])
     signal?.throwIfAborted()
     const second = stableReobservation(await this.persistence.listSnapshots(signal), sessionId)
     signal?.throwIfAborted()
@@ -125,6 +132,7 @@ export class SessionConsolidator {
         events: structuredClone(inspection.events),
         evidence: projectConsolidationEvidence(inspection.events),
       },
+      global,
       workspace: {
         scope: { ...scope },
         revision: workspace.revision,
@@ -138,6 +146,7 @@ export class SessionConsolidator {
   planProposal(input: SessionConsolidationInput, value: unknown): ConsolidationProposalPlan {
     return parseConsolidationProposal(value, {
       sourceEvidence: input.source.evidence,
+      global: input.global,
       workspace: input.workspace,
     })
   }

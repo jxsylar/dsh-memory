@@ -91,6 +91,51 @@ function validProposal(): unknown {
 }
 
 describe('ConsolidationCommitCoordinator', () => {
+  it('commits one proposal spanning Global and Workspace memory', async () => {
+    const proposal = validProposal() as { outcome: string; changes: unknown[] }
+    const setupResult = await setup({
+      outcome: 'changes',
+      changes: [{
+        action: 'replace-global',
+        content: '# Global Memory\n\n- Prefer concise answers.\n',
+        evidence: [{ fromSeq: 0, toSeq: 0 }],
+      }, ...proposal.changes],
+    })
+
+    const result = await setupResult.coordinator.commit(setupResult.request)
+    expect(result).toMatchObject({ outcome: 'committed' })
+    expect((await setupResult.store.readGlobal()).content).toContain('Prefer concise answers.')
+    expect((await setupResult.store.readWorkspace(setupResult.request.input.workspace.scope)).records)
+      .toMatchObject([{ name: 'verification-rule' }])
+    expect(result.receipt.changes.map(change => change.action)).toEqual(['replace-global', 'put'])
+  })
+
+  it('recovers when Global committed before a Workspace commit failure', async () => {
+    const proposal = validProposal() as { outcome: string; changes: unknown[] }
+    const setupResult = await setup({
+      outcome: 'changes',
+      changes: [{
+        action: 'replace-global',
+        content: '# Global Memory\n\n- Prefer concise answers.\n',
+        evidence: [{ fromSeq: 0, toSeq: 0 }],
+      }, ...proposal.changes],
+    })
+    const globalCommit = vi.spyOn(setupResult.store, 'commitGlobal')
+    const workspaceCommit = vi.spyOn(setupResult.store, 'commitWorkspace')
+    workspaceCommit.mockRejectedValueOnce(new Error('simulated Workspace crash'))
+
+    await expect(setupResult.coordinator.commit(setupResult.request)).rejects.toThrow('simulated Workspace crash')
+    expect((await setupResult.store.readGlobal()).content).toContain('Prefer concise answers.')
+    expect(setupResult.receipts.read(setupResult.request.input.reviewId)?.state).toBe('committing')
+
+    await expect(setupResult.coordinator.commit(setupResult.request)).resolves.toMatchObject({
+      outcome: 'committed',
+      recovered: true,
+    })
+    expect(globalCommit).toHaveBeenCalledTimes(1)
+    expect(workspaceCommit).toHaveBeenCalledTimes(2)
+  })
+
   it('writes a minimal committing intent before one CAS commit and completes the receipt', async () => {
     const { coordinator, receipts, request, store } = await setup()
     const result = await coordinator.commit(request)

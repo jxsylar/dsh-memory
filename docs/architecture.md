@@ -36,14 +36,14 @@ Agent step                         Web Browser
 | `src/session-catalog.ts` | 基于 SessionPersistence snapshot、live Agent registry 与可选 DSH 归档状态的只读资格投影 |
 | `src/consolidation-identity.ts` | review 与内部 worker Session 的稳定身份格式 |
 | `src/session-consolidator.ts` | M3 Host 核心；冻结稳定 Session 逻辑事件与目标 Workspace generation |
-| `src/consolidation-proposal.ts` | M3 proposal 的封闭解析、evidence 校验、规范化与 Workspace preview |
-| `src/consolidation-worker.ts` | M3 单次 worker；隔离模型路由、Prompt、runtime context 和工具能力，并保留可回放 Session |
+| `src/consolidation-proposal.ts` | M3 proposal 的封闭解析、evidence 校验、规范化与 Global/Workspace preview |
+| `src/consolidation-worker.ts` | M3 多轮 worker；隔离模型路由、Prompt、runtime context 和工具能力，并保留可回放 Session |
 | `src/consolidation-workspace.ts` | 为内部 worker 准备专属 cwd，并在可用时创建或复用 DSH Workspace、挂接审计 Session |
 | `src/consolidation-settings.ts` | 插件整理模型与 Debug 开关的 CAS 配置，以及 DSH 活跃文本模型目录投影 |
 | `src/consolidation-debug.ts` | 设置开启时写入每次 attempt 的脱敏、append-only JSONL 运维诊断 |
-| `src/consolidation-receipt.ts` | M3 receipt 与事务核心；review lock、durable intent、Workspace CAS 和 crash-window 收敛 |
+| `src/consolidation-receipt.ts` | M3 receipt 与事务核心；review lock、durable intent、Global/Workspace CAS 和 crash-window 收敛 |
 | `src/consolidation-replay.ts` | 从持久化 worker Session 的逻辑事件重建并重新校验 proposal plan |
-| `src/consolidation-runner.ts` | M3 手动整理编排；串联 prepare、单次 worker、失败 receipt、replay 与 commit |
+| `src/consolidation-runner.ts` | M3 手动整理编排；串联 prepare、多轮 worker、失败 receipt、replay 与 commit |
 | `src/client/MemorySection.tsx` | 响应式全局记忆、工作区记忆、会话整理与设置界面；内部 revision 不直接展示 |
 | `src/client/locales.ts` | Memory 设置页完整的 `zh` / `en` 文案字典 |
 | `cordis.patch.yml` | Bundle patch；向 Host 组合插入唯一的 `dsh-memory` row |
@@ -125,19 +125,19 @@ worker 监听自身 scope 的 `agent/error`：Agent loop 收敛到 idle 后若�
 
 `models/read` 从可选 `llm` 服务的 `listProviders()` 与 `listModels()` 投影当前活跃且支持文本输入的模型。`models/select` 重新验证 route 仍在活跃目录中，再以 revision CAS 原子保存 `$DSH_HOME/memory/settings.yml` 并更新后续 attempt 使用的 worker route。Browser 不读取配置文件、Provider 凭据或环境变量。
 
-M3 的第一条 Host 边界由 `SessionConsolidator.prepare()` 实现：先取得唯一 snapshot 并排除 live/无 cwd Session，再通过 `SessionPersistence.inspect()` 读取完整逻辑事件，同时读取当前 Workspace generation，最后重新观察 snapshot 与 live registry。只有 source metadata/revision 未变化时才返回克隆事件、确定性 turn evidence、Workspace records/revision、consolidator version 与 review id。`src/consolidation-evidence.ts` 使用 DSH `foldSurface()` 保留当前消息 surface；每轮只投影真实 user 文本、compaction replacement summary、最后一条非空 assistant 文本和工具名称/状态，排除普通插件 context、request 元数据、chunks、生命周期事件及工具参数/结果正文。该阶段不调用模型、不写 receipt，也不修改记忆；后续提交仍必须再次检查 source 并通过 `MemoryStore` CAS 检查 target。
+M3 的第一条 Host 边界由 `SessionConsolidator.prepare()` 实现：先取得唯一 snapshot 并排除 live/无 cwd Session，再通过 `SessionPersistence.inspect()` 读取完整逻辑事件，同时读取 Global 与当前 Workspace generation，最后重新观察 snapshot 与 live registry。只有 source metadata/revision 未变化时才返回克隆事件、确定性 turn evidence、Global content/revision、Workspace records/revision、consolidator version 与 review id。`src/consolidation-evidence.ts` 使用 DSH `foldSurface()` 保留当前消息 surface；每轮只投影真实 user 文本、compaction replacement summary、最后一条非空 assistant 文本和工具名称/状态，排除普通插件 context、request 元数据、chunks、生命周期事件及工具参数/结果正文。该阶段不调用模型、不写 receipt，也不修改记忆；后续提交仍必须再次检查 source 并通过 `MemoryStore` CAS 检查两个 target。
 
-第二条 Host 边界由 `SessionConsolidator.planProposal()` 实现。它把 worker 输出视为不可信值，拒绝未知字段、非法 record、空或越界 evidence、同名多次变化和不存在的删除目标；合法变化规范化为按名称排序的 delete-then-put batch。随后调用 `MemoryStore` 共享 preview 算法计算最终 records、index 和 planned revision；语义相同的 put 被收敛为 `no-change`。该阶段仍不写 receipt 或 Workspace。
+第二条 Host 边界由 `SessionConsolidator.planProposal()` 实现。它把 worker 输出视为不可信值，拒绝未知字段、非法 record、空或越界 evidence、重复 Global 替换、同名多次变化和不存在的删除目标；合法变化规范化为 `replace-global` 后接按名称排序的 delete-then-put batch。随后调用 `MemoryStore` 共享 preview 算法计算 Global 与 Workspace 的 planned revision；两个作用域都无语义变化时收敛为 `no-change`。该阶段仍不写 receipt 或 memory。
 
-第三条边界由 `SessionConsolidationWorker.run()` 实现。每次 attempt 创建独立 Agent/Session，并使用 `$DSH_HOME/memory/consolidator-workspace` 作为专属 cwd，使审计 Session 的物理日志不再进入 source 项目的 Session 目录。在 Web Host 提供 Workspace Registry 时，插件创建或复用题为 `Memory Consolidation` 的 DSH Workspace，并在成功 flush 后把 worker Session 挂接进去；没有该可选服务时仍保持物理隔离。该运行归属不改变 target Workspace，后者始终来自冻结的 source scope。`suppressRuntimeContext()` 阻止专属 cwd 派生的动态上下文进入模型。worker 使用设置页保存的 provider/model；仅在设置文件不存在时使用 Bundle 配置的默认 route。期望输出预算默认 8192，Host 通过 DSH `llm.resolveModelInfo()` 读取所选 route 的 adapter-owned `defaultMaxTokens`，实际请求取二者较小值，未知上限时保留插件预算。worker 只装配一个 complete system prompt，要求尽快形成最小 proposal，拒绝全部继承工具，再注册唯一的 scoped `memory_review_propose`。该工具向模型暴露完整的 put/delete 嵌套 schema，Host parser 仍拒绝未知字段、缺少 evidence 或越界 range。冻结的 turn evidence 与 Workspace records 作为 user-role 消息注入；完整 source events 保持 Host-only。proposal tool 调用、Host 校验结果和模型实际输入都进入 worker Session。模型引用的 evidence range 必须精确匹配一个已提供 turn，不能引用被过滤事件。动态输入默认最多 128 KiB，超过时在创建 Agent 前形成 `evidence-too-large`；debug 只记录筛选前后数量与字节数。`agent/pre-step` 在第二步前拒绝继续，tool 调用后结束当前 turn，因此每个 attempt 至多发起一次 Provider 请求。结束、失败或取消时要求 flush 确认存在持久化 Consumer，再挂接 DSH Workspace 并 dispose live Agent。
+第三条边界由 `SessionConsolidationWorker.run()` 实现。每次 attempt 创建独立 Agent/Session，并使用 `$DSH_HOME/memory/consolidator-workspace` 作为专属 cwd，使审计 Session 的物理日志不再进入 source 项目的 Session 目录。在 Web Host 提供 Workspace Registry 时，插件创建或复用题为 `Memory Consolidation` 的 DSH Workspace，并在成功 flush 后把 worker Session 挂接进去；没有该可选服务时仍保持物理隔离。该运行归属不改变 target Workspace，后者始终来自冻结的 source scope。`suppressRuntimeContext()` 阻止专属 cwd 派生的动态上下文进入模型。worker 使用设置页保存的 provider/model；仅在设置文件不存在时使用 Bundle 配置的默认 route。单次请求期望输出预算默认 8192，Host 通过 DSH `llm.resolveModelInfo()` 取它与 adapter-owned `defaultMaxTokens` 的较小值。worker 拒绝全部继承工具，只注册 scoped `memory_review_propose`；工具支持 Global `replace-global`、Workspace `put/delete` 与 `no-change`。`final=false` 可校验草稿并继续下一步，只有校验通过的 `final=true` 才结束。冻结的 turn evidence、Global 正文与 Workspace records 作为 user-role 消息注入；完整 source events 保持 Host-only。所有 proposal 调用和 Host 结果都进入 worker Session。动态输入默认最多 128 KiB，整个多轮 attempt 仍受 timeout 约束。结束、失败或取消时要求 flush 确认存在持久化 Consumer，再挂接 DSH Workspace 并 dispose live Agent。
 
-该 worker 已通过真实 DSH 成功与非法 proposal 失败链路验证；自动组装回放测试仍待补。完整状态机与数据契约见 [session-consolidation.md](session-consolidation.md)。
+当前 Global/Workspace 整理链路已通过真实 Web 使用验证，非法 proposal 失败链路也已验证；自动组装回放测试仍待补。完整状态机与数据契约见 [session-consolidation.md](session-consolidation.md)。
 
-`ConsolidationCommitCoordinator` 实现提交屏障：在同一 review lock 内二次确认 source、比较 frozen target revision，先原子写入不含记忆正文的 `committing` receipt，再通过 `MemoryStore.commitWorkspace()` 做一次 CAS。重入 `committing` 时，当前 Workspace 等于 before revision 就重放同一份已验证 plan，等于 planned after 就只补写 `committed`，其他 revision 收敛为 `target-conflict`；恢复 plan 的 proposal hash、before 和 planned after 必须与 durable intent 完全一致。`committed` 与 `no-change` 终态直接幂等返回。
+`ConsolidationCommitCoordinator` 实现提交屏障：在同一 review lock 内二次确认 source、比较 frozen Global 与 Workspace revision，先原子写入不含记忆正文的 `committing` receipt，再通过 `MemoryStore` 对发生变化的作用域执行 CAS。恢复时从 worker Session 重建完整 plan，并把两个作用域分别与 before/planned revision 比较；全部达到 planned 后补写 `committed`，任一出现第三方 revision 则收敛为 `target-conflict`。`committed` 与 `no-change` 终态直接幂等返回。
 
-`SessionConsolidationRunner` 在 review lock 内检查既有终态、计算 attempt、执行至多一次 worker，并把结果交给提交屏障。严格空事件 Session 直接形成 `no-change`，不创建 worker。取消、source changed、非法 proposal、Provider 失败和内部编排错误形成带 attempt 分类的终态 receipt；失败只能由下一次显式调用重试。并发触发同一 review 时，后进入者读取先完成的终态，不会再次调用模型。
+`SessionConsolidationRunner` 在 review lock 内检查既有终态、计算 attempt、执行一个可多轮交互的 worker，并把最终 proposal 交给提交屏障。严格空事件 Session 直接形成 `no-change`，不创建 worker。取消、source changed、非法 proposal、Provider 失败和内部编排错误形成带 attempt 分类的终态 receipt；失败只能由下一次显式调用重试。并发触发同一 review 时，后进入者读取先完成的终态，不会再次调用模型。
 
-若已有 `committing` receipt，runner 通过 `WorkerSessionPlanReplay` 调用 `SessionPersistence.inspect()`，从 worker 的 user-role evidence 和唯一 proposal tool call 重建 plan，再由 receipt hash 与 before/after revision 校验后恢复，绝不重新调用模型。该路径只读取后端无关的逻辑事件，不扫描 JSONL。
+若已有 `committing` receipt，runner 通过 `WorkerSessionPlanReplay` 调用 `SessionPersistence.inspect()`，从 worker 的 user-role evidence 和唯一 `final=true` proposal tool call 重建 plan，再由 receipt hash 与 before/after revision 校验后恢复，绝不重新调用模型。该路径只读取后端无关的逻辑事件，不扫描 JSONL。
 
 runner 在 prepare 新 revision 前扫描受控的 `reviews/review-*.md`，按 source Session 查找最早的 `committing` receipt。即使 source 已增长，它也先用 receipt 的 Host-owned Workspace key 定位目标，从旧 worker evidence 重建 plan 并完成或收敛旧事务；本次调用不会同时启动新 review。下一次显式触发才处理 source 的新 revision。
 

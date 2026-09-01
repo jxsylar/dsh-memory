@@ -5,7 +5,7 @@
 <h1 align="center">dsh-memory</h1>
 
 <p align="center">
-  Markdown-based long-term memory for DeepSeek Harness, layered across Global and Workspace scopes with progressive disclosure.
+  Claude Code-inspired Auto Memory meets Codex-inspired Session consolidation, bringing simple, transparent, and context-efficient long-term memory to DeepSeek Harness.
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
 
 <div align="center">
 
-[Capabilities](#core-capabilities) · [Installation](#installation) · [Getting started](#getting-started) · [Data and privacy](#data-and-privacy) · [Documentation](#documentation)
+[Design inspiration](#design-inspiration-claude-code--codex) · [Capabilities](#core-capabilities) · [Installation](#installation) · [Getting started](#getting-started) · [Data and privacy](#data-and-privacy) · [Documentation](#documentation)
 
 </div>
 
@@ -29,15 +29,26 @@ Once a Session ends, an Agent can easily lose user preferences, project constrai
 
 It does not require an external memory database or dedicated memory service, nor does it put every historical conversation back into context. The Agent sees a small index first and uses DSH's existing file tools to open only the relevant detailed memories.
 
+## Design inspiration: Claude Code × Codex
+
+Instead of introducing a vector database or a separate memory service, `dsh-memory` combines two simple mechanisms already used by coding agents:
+
+| Inspiration | Borrowed idea | dsh-memory implementation |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/memory) | Use a concise `MEMORY.md` as an index and let the Agent read detailed Markdown on demand | Automatically provide Global memory and the current Workspace index, then progressively disclose details through DSH file tools |
+| [Codex](https://learn.chatgpt.com/docs/customization/memories) | Extract and consolidate reusable memory from eligible historical Sessions | Select finished, stable DSH Sessions and let a dedicated, constrained consolidation Agent propose memory changes |
+
+`dsh-memory` brings these ideas together: memories are layered in Markdown and disclosed on demand, while reusable information is continually distilled from historical Sessions.
+
 ## Core capabilities
 
 | Capability | Description |
 |---|---|
 | Local Markdown | Authoritative memory lives under `$DSH_HOME/memory` and can be read or backed up directly |
 | Global / Workspace isolation | Global stores cross-project preferences; project facts stay in the current Workspace |
-| Progressive recall | Global memory and the current Workspace index are injected automatically; details are opened on demand |
+| Claude Code-style progressive disclosure | Global memory and the current Workspace index are provided first; detailed Markdown is opened only when relevant |
 | Safe writes | The Agent and Web UI use the same write path and refuse to overwrite concurrent changes |
-| Session consolidation | Candidate long-term memories are extracted from finished, stable DSH Sessions and written only after validation |
+| Codex-style Session consolidation | Evidence is selected from finished, stable historical Sessions before a dedicated consolidation Agent updates Global and source-Workspace memory |
 | Observability | Every review keeps a result record; optional Debug logs capture stages and error chains without copying conversation bodies or credentials |
 | Bilingual UI | The Memory pages follow the Chinese or English locale selected by DSH Web |
 
@@ -50,7 +61,7 @@ Agent request
 
 Finished DSH Session
   └─ User starts consolidation
-       └─ Dedicated consolidation Agent proposes memory changes
+       └─ Dedicated consolidation Agent can iteratively review and propose Global / source-Workspace changes
             └─ Host validates evidence, memory scope, and data versions
                  └─ MemoryStore writes atomically and records the result
 ```
@@ -124,11 +135,11 @@ $DSH_HOME/memory/
 ```
 
 - Web management APIs are available only to the local machine;
-- the Web page never receives the memory root, absolute paths, cwd, or internal Workspace keys;
+- Web memory-write requests never submit a memory root, absolute path, cwd, or internal Workspace key; the header shows the Host-reported local memory root for diagnostics only;
 - Debug is off by default and does not record conversation evidence, memory/model proposal bodies, or API keys;
 - `MEMORY.md` is a rebuildable index; detailed Markdown files are authoritative Workspace data.
 
-“Local-first” means that authoritative memory is stored locally; it does not mean that every model operation runs offline. Normal Agent requests send the visible memory context to that Agent's model. Manual Session consolidation sends filtered conversation content and current Workspace memories to the model provider selected in Settings. Enable these features only when the provider's privacy policy is appropriate for your data.
+“Local-first” means that authoritative memory is stored locally; it does not mean that every model operation runs offline. Normal Agent requests send the visible memory context to that Agent's model. Manual Session consolidation sends filtered conversation content, Global memory, and current Workspace memories to the model provider selected in Settings. Enable these features only when the provider's privacy policy is appropriate for your data.
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 

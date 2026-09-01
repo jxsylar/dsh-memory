@@ -14,13 +14,13 @@
 | 计划 | 当前推荐方案，讨论确认后按切片实现 |
 | 待讨论 | 会显著影响安全、用户体验或数据格式，写代码前需要确认 |
 
-M3-A 至 M3-E 已实现：稳定输入、proposal 校验、受限单次 worker、手动 attempt 编排、失败 receipt、并发去重、Workspace CAS、跨 source revision 的 pending recovery、`sessions/consolidate` RPC、Sessions UI、可选详细 debug 日志和整理模型选择。真实 DSH 成功与非法 proposal 失败链路均已验证；自动组装回放和发布 GIF 尚未完成。
+M3-A 至 M3-E 已实现：稳定输入、双作用域 proposal 校验、受限多轮 worker、手动 attempt 编排、失败 receipt、并发去重、Global/Workspace CAS、跨 source revision 的 pending recovery、`sessions/consolidate` RPC、Sessions UI、可选详细 debug 日志和整理模型选择。新版 Global/Workspace 整理已通过人工 Web 验证；自动组装回放和发布 GIF 尚未完成。
 
 ## 2. 目标与非目标
 
 ### 2.1 目标
 
-- 从一个持久化 Session 的完整逻辑事件中提取可复用的 Workspace 记忆；
+- 从一个持久化 Session 的完整逻辑事件中提取可复用的 Global 与当前 Workspace 记忆；
 - 由模型判断语义，由 Host 决定 scope、校验 proposal、检查 revision 并提交；
 - 整理过程写入独立 worker Session，模型实际看到的输入和输出可以回放；
 - 成功、无变化、取消、冲突、非法输出和 Provider 失败都有稳定 receipt；
@@ -29,7 +29,6 @@ M3-A 至 M3-E 已实现：稳定输入、proposal 校验、受限单次 worker�
 
 ### 2.2 非目标
 
-- 不修改 Global memory；
 - 不跨 Workspace 搜索、比较或提升记忆；
 - 不自动调度、批量整理或后台重试；
 - 不增加向量库、Provider 聚合、importance、tag 或知识图谱；
@@ -43,9 +42,9 @@ M3-A 至 M3-E 已实现：稳定输入、proposal 校验、受限单次 worker�
 | source Session | 用户选择作为学习证据的持久化 Session |
 | source revision | `SessionPersistence.listSnapshots()` 返回的 source-qualified 不透明 revision |
 | target Workspace | 由 source Session 的权威 cwd 解析出的唯一 Workspace |
-| target revision | 整理开始时读取到的 Workspace generation revision |
+| target revisions | 整理开始时读取到的 Global 与 Workspace revision |
 | worker Session | 只负责一次整理尝试的独立 DSH Session，保存模型可见输入和 proposal 过程 |
-| proposal | worker 提出的结构化 `put | delete | no-change` 语义结果 |
+| proposal | worker 提出的结构化 `replace-global | put | delete | no-change` 语义结果 |
 | review | 一个 source revision、consolidator version 和 target Workspace 的稳定逻辑整理单元 |
 | attempt | 同一 review 下的一次 worker 尝试；失败后只能由用户手动重试 |
 | receipt | `$DSH_HOME/memory/reviews/<review-id>.md` 下的 Host 权威审计记录 |
@@ -70,21 +69,22 @@ Browser: sessions/consolidate({ sessionId })
   -> Host 运行时解析 request，只接受 Session id
   -> 重新检查持久化 snapshot 与 live Agent registry
   -> SessionPersistence.inspect() 读取完整逻辑事件
-  -> MemoryStore 读取 source cwd 对应的 Workspace generation
+  -> MemoryStore 读取 Global 与 source cwd 对应的 Workspace generation
   -> 再次检查 source snapshot 与 live 状态
   -> 生成 review id，并取得 review lock
   -> 已有成功 receipt：直接返回，不调用模型
   -> 未完成 committing receipt：执行崩溃恢复，不调用模型
   -> 创建新的 worker Session attempt
   -> 将完整日志投影为紧凑 turn evidence
-  -> 注入整理规则、turn evidence 和现有 Workspace records
-  -> worker 只能调用一次 memory_review_propose
-  -> Host 解析、校验并规范化 proposal
+  -> 注入整理规则、turn evidence、Global 正文和现有 Workspace records
+  -> worker 可多轮调用 memory_review_propose 校验草稿
+  -> 唯一通过校验的 final=true proposal 结束 attempt
+  -> Host 解析、校验并规范化 Global/Workspace proposal
   -> no-change：写 terminal receipt，返回
   -> changes：计算预期 post revision
   -> 最后检查 source revision 与 live 状态
   -> 先写 committing receipt
-  -> MemoryStore 使用 frozen target revision 做 CAS batch commit
+  -> MemoryStore 使用 frozen Global/Workspace revision 做 CAS commit
   -> 写 committed receipt
   -> Browser 刷新 Sessions 与 Workspace 页面
 ```
@@ -112,11 +112,11 @@ Agent registry 存在表示 Agent 仍然 live，可能是 `idle` 或 `running`�
 2. 排除 live、无 cwd 和非法 Workspace；
 3. 使用 `SessionPersistence.inspect()` 读取完整逻辑事件，而不是扫描 JSONL；
 4. 验证 inspection metadata 与 snapshot 的 id、createdAt、cwd 一致；
-5. 读取当前 Workspace records、index 和 revision；
+5. 读取 Global content/revision 与当前 Workspace records、index 和 revision；
 6. 再次读取 snapshot，并再次排除 live；
 7. 仅在 source metadata 和 revision 未变化时生成 frozen input。
 
-target Workspace 不在模型调用期间加锁。它通过 frozen target revision 和最终 `MemoryStore` CAS 检测并发变化，避免长时间持有文件写锁。
+Global 与 target Workspace 都不在模型调用期间加锁。它们通过 frozen revisions 和最终 `MemoryStore` CAS 检测并发变化，避免长时间持有文件写锁。
 
 ### 5.3 空白 Session
 
@@ -136,21 +136,21 @@ worker Session 不使用 source Session id，不 resume source，也不把 sourc
 
 worker 的模型可见信息分两部分：
 
-1. system-role 静态规则：职责、保留/拒绝标准、proposal schema、禁止事项；
-2. user-role runtime context：review id、turn evidence、现有 Workspace records 和明确任务。
+1. system-role 静态规则：职责、Global/Workspace 归属、保留/拒绝标准、proposal schema、禁止事项；
+2. user-role runtime context：review id、turn evidence、Global 正文、现有 Workspace records 和明确任务。
 
 动态输入必须通过 DSH 可记录的消息/context 通道进入 worker Session，不能只藏在临时闭包、request middleware 或日志外对象中。
 
 ### 6.3 能力限制
 
-已实现：worker 先以 scoped restriction 拒绝全部继承工具，再只注册一个 scoped proposal tool：`memory_review_propose`。工具参数直接声明完整的 put/delete 嵌套对象、`action` discriminator、record 与 evidence range；Host parser 仍执行第二层严格校验。它不获得：
+已实现：worker 先以 scoped restriction 拒绝全部继承工具，再只注册一个 scoped proposal tool：`memory_review_propose`。工具参数声明 `final`、Global `replace-global`、Workspace `put/delete`、record 与 evidence range；Host parser 仍执行第二层严格校验。`final=false` 只校验草稿并允许下一轮，只有校验通过的 `final=true` 才结束 attempt。它不获得：
 
 - `memory_update`；
 - 文件读写、shell、网络或 MCP 工具；
 - Browser RPC、MemoryStore 或 SessionPersistence；
 - 任意 root、path、cwd、Workspace id/key 或 expected revision。
 
-实现使用 Agent setup scope 中的 `tools.restrict({ allow: [] })` 与本地 `tools.register()`。complete system section 替代普通 system prompt，并通过 `suppressRuntimeContext()` 关闭全局动态上下文。`agent/pre-step` 在第二步前拒绝继续，proposal tool 调用 `concludeTurn()`，共同保证每个 attempt 至多一次 Provider 请求。真实 DSH 组装测试仍需证明最终 request header 与持久化 replay 的一致性。
+实现使用 Agent setup scope 中的 `tools.restrict({ allow: [] })` 与本地 `tools.register()`。complete system section 替代普通 system prompt，并通过 `suppressRuntimeContext()` 关闭普通动态上下文。Worker 可以进行多轮 Provider 请求；全部 draft tool call 与结果都进入 Session，只有最终调用会执行 `concludeTurn()`。真实 DSH 组装测试仍需证明最终 request header 与持久化 replay 的一致性。
 
 ### 6.4 模型与运行限制
 
@@ -163,7 +163,7 @@ worker 的模型可见信息分两部分：
 - request header/context、assistant chunks、turn/step 边界、title 和其他日志事件不进入模型；
 - 非文本 user block 变成类型占位，凭据做 best-effort 脱敏，超过 4 KiB 的 fenced code block 变成带字节数的占位。
 
-完整事件不被修改，仍用于 source stability、receipt coverage 和审计。筛选不是末尾截断；动态 user-role 输入（turn evidence 加 Workspace records）默认上限 128 KiB，超过时不创建 Agent，并写入 `evidence-too-large` receipt。debug 记录 source event/evidence 的数量和字节数，但不记录正文。
+完整事件不被修改，仍用于 source stability、receipt coverage 和审计。筛选不是末尾截断；动态 user-role 输入（turn evidence、Global 正文和 Workspace records）默认上限 128 KiB，超过时不创建 Agent，并写入 `evidence-too-large` receipt。debug 记录 source event/evidence 的数量和字节数，但不记录正文。
 
 已确定：整理 worker 使用插件自己的显式模型配置，不继承 Host 当前默认模型路由。第一版默认固定为当前 DSH 中成本较低的路由：
 
@@ -177,13 +177,13 @@ maxInputBytes: 131072
 
 这是一个可覆盖的首次启动默认 route，不做价格查询，也不在运行时自动选择“最便宜”模型。Memory 设置页从 DSH 活跃模型目录读取可用文本模型，API key 仍由 DSH Models 页面管理；插件只以 CAS 保存 provider/model。设置文件存在后，保存的 route 覆盖默认 provider/model。修改只影响之后开始的 attempt，已经运行或写入 receipt 的 attempt 保留其快照 route。插件同时保留：
 
-- 单次请求期望输出 token 上限；默认 8192，并通过 DSH `resolveModelInfo()` 取它与所选模型 `defaultMaxTokens` 的较小值，兼容较低上限的 route；
+- 每轮请求的期望输出 token 上限；默认 8192，并通过 DSH `resolveModelInfo()` 取它与所选模型 `defaultMaxTokens` 的较小值，兼容较低上限的 route；该上限不解除，避免多轮调用重复继承过大的 adapter 默认预算；
 - 整个 attempt 的端到端 timeout。
 - 筛选后动态输入的最大 UTF-8 字节数。
 
 timeout 或用户取消会 abort worker、等待其收敛并保存失败 receipt。第一版不自动换 Provider 或降低输入质量重试。
 
-Prompt 要求 worker 跳过逐项复述、备选草稿和长篇规划，一旦形成最小有用 proposal 就立即调用工具；证据不足时优先 `no-change`。该规则减少 reasoning 模型在工具调用前耗尽输出预算的概率，但不取消一次 attempt 一次 Provider 请求的确定性边界。
+Prompt 要求 worker 跳过逐项复述和长篇规划，使用工具反馈修正草稿，并在完整 proposal 就绪时提交 `final=true`；证据不足时优先 `no-change`。多轮共享 attempt timeout，每轮仍使用模型感知的输出预算。
 
 ## 7. 阶段三：Proposal contract
 
@@ -198,6 +198,11 @@ type ConsolidationProposal =
   | {
       outcome: 'changes'
       changes: Array<
+        | {
+            action: 'replace-global'
+            content: string
+            evidence: Array<{ fromSeq: number; toSeq: number }>
+          }
         | {
             action: 'put'
             record: {
@@ -224,13 +229,14 @@ type ConsolidationProposal =
 - 对象只含 schema 允许的字段；
 - `no-change` 必须是空 changes；`changes` 必须至少包含一项；
 - 每个 evidence range 非空、整数、顺序正确，并精确匹配一个实际提供给模型的 turn range；
+- `replace-global` 必须提供完整 Global Markdown，同一 proposal 最多一次；
 - `put` record 复用 `MemoryStore` 的 name、description、type、content 校验；
 - `delete` 只能引用 frozen Workspace 中存在的记录；
 - 同名重复 put/delete 拒绝；更新只使用 put，不允许对同名记录先 delete 再 put；
-- 模型不能改变 Global，也不能提交 revision、scope 或路径；
-- Host 将合法变化规范化为“delete 按 name 排序，再 put 按 name 排序”的 batch。
+- 模型不能提交 revision、scope 或路径，也不能选择 source Session 之外的 Workspace；
+- Host 将合法变化规范化为“replace-global、delete 按 name 排序、put 按 name 排序”的 batch。
 
-模型给出的顺序、名称、evidence 和内容都不可信。任何非法输出产生 `invalid-proposal` receipt，不自动要求模型修复或再次调用。
+模型给出的顺序、名称、evidence 和内容都不可信。非法 draft 会返回 rejected，允许 Worker 在 attempt timeout 内修复；没有产生合法 final proposal 时写入 `invalid-proposal` receipt。
 
 ### 7.2 Evidence redaction
 
@@ -249,7 +255,7 @@ worker Session 自身保留模型可见输入与原始 proposal，以满足回�
 - 与其他变化一起通过 Host 校验和 Workspace revision CAS；
 - 记录在 receipt 的 change 摘要中。
 
-该能力用于删除已被新证据明确推翻或已不再成立的记忆。模型不能删除 Global memory，也不能绕过 `MemoryStore` 直接操作文件。
+该能力用于删除已被新证据明确推翻或已不再成立的 Workspace 记忆。Global 使用完整 `replace-global`，不能单独删除片段；模型不能绕过 `MemoryStore` 直接操作文件。
 
 ## 8. 阶段四：二次检查与提交
 
@@ -265,30 +271,29 @@ proposal 通过校验后，Host 再次确认：
 
 ### 8.2 Target preview
 
-已实现：`MemoryStore` 提供只读 preview 能力，使用 frozen target records 和规范化 changes 计算：
+已实现：`MemoryStore` 提供 Global 与 Workspace 的只读 preview 能力，使用 frozen 内容和规范化 changes 分别计算：
 
 - 实际是否发生变化；
-- 规范化后的最终 records；
-- planned post revision。
+- 规范化后的最终 Global 内容或 Workspace records；
+- 两个作用域各自的 planned post revision。
 
 preview 与 commit 必须复用同一套校验、规范化和 revision 计算代码，不能各自实现一份算法。
 
-如果 proposal 最终生成与当前 records 完全相同的 generation，Host 将其规范化为 `no-change`，不执行文件交换。
+如果 proposal 在两个作用域都没有产生语义变化，Host 将其规范化为 `no-change`，不执行文件交换。
 
 ### 8.3 Commit barrier
 
 已实现：Host 在提交前先原子写入 `committing` receipt，其中包含：
 
 - source revision；
-- target before revision；
-- planned after revision；
+- Workspace before/planned revision；
 - proposal hash；
 - 规范化 change 摘要；
 - worker Session id 和 attempt。
 
-随后调用 `MemoryStore.commitWorkspace()`，expected revision 必须是 frozen target revision。冲突时不覆盖，写入 `target-conflict` receipt。恢复调用必须提供同一份已验证 plan，其 proposal hash、before revision 和 planned after revision 与 receipt 任一不一致都会被拒绝；完整编排将从 worker Session 回放该 plan，而不是再次调用模型或在 receipt 中保存正文。
+随后对实际变化的 Global 与 Workspace 依次调用对应的 `MemoryStore` CAS 写入；expected revision 必须等于各自 frozen revision。冲突时不覆盖，写入 `target-conflict` receipt。恢复调用必须从 worker Session 回放同一份已验证 plan：Workspace before/planned revision 与 receipt 对齐，Global before/planned revision 由 plan 重建，并用 proposal hash 绑定完整双作用域提议；不再次调用模型，也不在 receipt 中保存正文。
 
-进入 commit barrier 后，用户取消不再中断 receipt/Workspace 的一致性收尾。操作最终返回 committed、recovered 或 conflict，而不是声称取消成功。
+进入 commit barrier 后，用户取消不再中断 receipt/Global/Workspace 的一致性收尾。操作最终返回 committed、recovered 或 conflict，而不是声称取消成功。
 
 ## 9. Receipt 与崩溃恢复
 
@@ -316,7 +321,7 @@ $DSH_HOME/memory/reviews/<review-id>.md
 
 attempt 使用封闭状态记录成功、无变化、取消、source changed、target conflict、非法 proposal、Provider failure 或 internal error；失败后的下一次显式触发增加 attempt，不覆盖历史。
 
-它不保存 cwd、完整事件、工具结果、Prompt、proposal 正文或 memory content。完整模型过程留在 worker Session。
+它不单独保存 Global before/after revision，也不保存 cwd、完整事件、工具结果、Prompt、proposal 正文或 memory content。Global 计划在恢复时从 worker Session 的最终 proposal 重建，并通过 proposal hash 验证；完整模型过程留在 worker Session。
 
 ### 9.2 状态机
 
@@ -344,13 +349,13 @@ prepared/running/proposed
 
 ### 9.3 `committing` 恢复
 
-若 Host 在写入 `committing` 后崩溃，重启后再次触发同一 review 时不调用模型，而是比较当前 Workspace revision：
+若 Host 在写入 `committing` 后崩溃，重启后再次触发同一 review 时不调用模型。Host 从 Worker Session 重建最终 plan，分别比较 Global 与 Workspace 的当前、before 和 planned revision：
 
-| 当前 revision | 恢复动作 |
+| 两个作用域的状态 | 恢复动作 |
 |---|---|
-| 等于 target before | 使用 receipt 中已校验 proposal 执行一次 CAS commit |
-| 等于 planned after | 视为 Workspace 已提交，补写 committed receipt |
-| 其他值 | 写 target-conflict，不猜测也不覆盖 |
+| 都是 before 或 planned | 只提交仍处于 before 的作用域 |
+| 都已等于 planned | 补写 committed receipt |
+| 任一为其他 revision | 写 target-conflict，不猜测也不覆盖 |
 
 planned after 是内容寻址 revision。即使其他操作独立产生了完全相同 generation，最终状态等价，可以安全收敛为 committed。
 
@@ -361,9 +366,9 @@ planned after 是内容寻址 revision。即使其他操作独立产生了完全
 已实现两层锁：
 
 1. review lock：按 review id 串行化相同 source/version 的触发、attempt 和恢复；
-2. `MemoryStore` Workspace lock：只包围 preview/commit 的短临界区。
+2. `MemoryStore` Global/Workspace scope lock：只包围各自 commit 的短临界区。
 
-不得在模型调用期间持有 Workspace lock。锁顺序固定为先 review、后 Workspace，避免两个整理任务相互等待。
+不得在模型调用期间持有 memory scope lock。锁顺序固定为先 review、后 Global/Workspace commit。
 
 第一版假设同一个 `$DSH_HOME` 由一个 Host 进程管理；不声称支持多个进程同时写同一 memory root。若未来支持多 Host，需要文件锁或新的事务后端，并单独做设计变更。
 
@@ -408,7 +413,7 @@ Sessions UI 会显示每个已有 attempt 的确定性 debug 路径：`$DSH_HOME
 | filtered evidence too large | 是 | 否 | 调高 `maxInputBytes` 或等待分块整理能力 |
 | invalid proposal | 是 | 否 | 是 |
 | target conflict | 是 | 否 | 重新读取后形成新决策 |
-| committed | 是 | 一次完整 generation | 成功幂等 |
+| committed | 是 | Global 和/或一个完整 Workspace generation | 成功幂等 |
 | crash during committing | 已有 committing receipt | 按恢复表判断 | 不重复调用模型 |
 
 在 review id 尚未生成前发生的非法 Session id、缺失 snapshot 或非法 cwd，只返回结构化错误；因为还不存在稳定 review 身份，不能安全创建 receipt 文件。
@@ -421,9 +426,9 @@ Sessions UI 会显示每个已有 attempt 的确定性 debug 路径：`$DSH_HOME
 - live Agent 在读取前、读取后和最终提交前出现；
 - inspection metadata 与 snapshot 不一致；
 - 空白 Session 不调用模型；
-- proposal 合法与每一种非法字段、range、重复 change；
+- proposal 合法与每一种非法字段、range、重复 change，以及 Global/Workspace 联合变化；
 - target preview 与实际 commit 产生相同 revision；
-- review lock 并发触发只调用一次模型；
+- review lock 并发触发只运行一个 worker attempt；
 - committed/no-change 幂等；
 - committing 三种崩溃恢复分支；
 - 取消、timeout、Provider failure、非法 proposal 和 target conflict receipt。
@@ -440,7 +445,7 @@ Sessions UI 会显示每个已有 attempt 的确定性 debug 路径：`$DSH_HOME
 ### 13.3 人工 Web 验证
 
 - eligible、live、空白、source changed 和 target conflict 状态；
-- 成功 put/delete/no-change 后 Workspace 页面与 Markdown 一致；
+- 成功 replace-global/put/delete/no-change 后 Global、Workspace 页面与 Markdown 一致；
 - 刷新或重启后 receipt 状态保持；
 - 相同成功 review 再触发不产生新的模型调用；
 - 发布前补充一次完整整理 GIF。
@@ -450,8 +455,8 @@ Sessions UI 会显示每个已有 attempt 的确定性 debug 路径：`$DSH_HOME
 | 切片 | 内容 | 完成证据 |
 |---|---|---|
 | M3-A | source/target 稳定输入冻结 | 已实现；单元测试覆盖双 snapshot、live、cwd 和 metadata |
-| M3-B | proposal schema、parser、canonicalization、preview | 已实现；非法输出测试与 preview/commit revision 一致性测试通过 |
-| M3-C | worker Agent/Session 与单一 proposal tool | 实现、隔离 Host 单元测试及真实 DSH 调用已完成；自动 assembled replay 待补 |
+| M3-B | 双作用域 proposal schema、parser、canonicalization、preview | 已实现；非法输出、Global/Workspace 联合 commit 与 revision 一致性测试通过 |
+| M3-C | 多轮 worker Agent/Session 与单一 proposal tool | 实现与隔离 Host 单元测试已完成；新版人工 Web 调用已验证，自动 assembled replay 待补 |
 | M3-D | receipt store、review lock、commit barrier、恢复 | 已实现；覆盖幂等、并发、失败重试、跨 revision pending 发现、逻辑事件回放和 crash window |
 | M3-E | `sessions/consolidate` RPC 与 Sessions UI | 已实现 Host/Browser 双侧解析、空 Session 组装测试与真实 Web 成功整理验证 |
 
@@ -467,4 +472,4 @@ Sessions UI 会显示每个已有 attempt 的确定性 debug 路径：`$DSH_HOME
 | 失败重试展示 | UI 只显示最新 attempt；receipt 保留最小化历史；失败只能手动重试 |
 | 空白与低信息 Session | 只确定性跳过严格空白；其他低信息输入交给模型判断，合法 `no-change` 即成功 |
 | 已增长 Session | M3 不做增量 watermark；revision 变化形成新 review，并重新审查完整逻辑事件；增量整理推迟到 M4 评估 |
-| 删除 | 允许模型提出带 evidence 的 Workspace `delete`，不逐条二次确认；仍受 Host 校验、receipt 审计和 CAS 保护 |
+| 删除 | 允许模型提出带 evidence 的 Workspace `delete`；Global 仅允许完整 `replace-global`；仍受 Host 校验、receipt 审计和 CAS 保护 |

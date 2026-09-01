@@ -1,7 +1,7 @@
 {
   "name": "@hr98w/dsh-memory",
   "version": "0.1.0",
-  "description": "Markdown long-term memory for DeepSeek Harness with Global and Workspace layers and progressive disclosure",
+  "description": "Claude Code- and Codex-inspired long-term memory for DeepSeek Harness",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/hr98w/dsh-memory.git"
@@ -16,7 +16,10 @@
     "memory",
     "local-first",
     "markdown",
-    "agent"
+    "agent",
+    "agent-memory",
+    "claude-code",
+    "codex"
   ],
   "license": "MIT",
   "type": "module",

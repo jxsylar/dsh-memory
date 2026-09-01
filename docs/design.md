@@ -129,7 +129,7 @@ Agent 可以在以下情况调用 `memory_update`：
 
 ## 7. Session 整理
 
-Session 整理是第一版核心闭环。它的目标是从一个已经持久化、当前不 live 且带合法 cwd 的 Session 中生成当前 Workspace 的候选变化。
+Session 整理是第一版核心闭环。它的目标是从一个已经持久化、当前不 live 且带合法 cwd 的 Session 中生成 Global 与当前 Workspace 的候选变化。
 
 流程：
 
@@ -137,9 +137,9 @@ Session 整理是第一版核心闭环。它的目标是从一个已经持久化
 用户选择稳定 Session
   -> SessionPersistence 获取后端无关 snapshot/revision
   -> 再次确认 Session 不 live 且 revision 未变化
-  -> 读取完整逻辑事件，确定性投影为 turn evidence，并读取当前 Workspace generation
-  -> 受限 Consolidator Agent 生成 put/delete/no-change proposal
-  -> Host 校验 proposal、source revision 和 Workspace revision
+  -> 读取完整逻辑事件，确定性投影为 turn evidence，并读取 Global 与当前 Workspace generation
+  -> 受限 Consolidator Agent 通过多轮工具调用形成 replace-global/put/delete/no-change proposal
+  -> Host 校验 proposal、source revision 和两个 memory revision
   -> MemoryStore 原子提交全部变化
   -> 保存 Markdown receipt
 ```
@@ -147,7 +147,7 @@ Session 整理是第一版核心闭环。它的目标是从一个已经持久化
 约束：
 
 - 通过 `SessionPersistence` API 读取，不扫描 JSONL 或假设具体后端；
-- 单个 Workspace Session 不能直接修改 Global；
+- Consolidator 只能修改 Global 与 source Session 所在 Workspace；项目局部事实不得写入 Global；
 - 模型只提出结构化变化，Host 负责确定性校验和提交；
 - 失败、取消、非法输出或冲突都不能产生部分写入；
 - 完整逻辑事件保留在 Host；模型只接收可回放的 turn evidence，不接收请求元数据、流式片段或工具正文；
@@ -156,7 +156,7 @@ Session 整理是第一版核心闭环。它的目标是从一个已经持久化
 - 整理输入和输出保存在独立 worker Session 中，使用专属运行 cwd 与 DSH Workspace 隔离普通项目历史，同时不改变由 source Session 决定的记忆目标，保证模型可见过程可回放。
 - 若旧 review 停在 commit barrier，即使 source revision 已增长，也先恢复或收敛旧事务，再由下一次显式触发处理新 revision。
 
-Receipt 位于 `reviews/<review-id>.md`，记录来源 Session、source revision、Workspace、覆盖 seq、worker Session、状态、提交前后 revision 和实际变化，不复制完整对话或详细记忆正文。
+Receipt 位于 `reviews/<review-id>.md`，记录来源 Session、source revision、Workspace、覆盖 seq、worker Session、状态、Workspace 提交前后 revision、proposal hash 和实际变化摘要，不复制完整对话或详细记忆正文。Global 的提交计划由 worker Session 中的最终 proposal 重建，并由 proposal hash 校验。
 
 第一版只提供 UI 手动触发。自动 idle、周期任务、批处理和重试以后调用同一个 `SessionConsolidator`，不另建一套整理逻辑。
 
@@ -172,7 +172,8 @@ Memory 是 DSH Settings 中独立 section，包含：
 | 工作区记忆 | 浏览 Workspace、索引和详细记录，批量提交 mutation |
 | 会话整理 | 先选择 Workspace，再按标题浏览稳定 Session、触发整理并查看 receipt；内部整理 Workspace 不显示且不能作为来源 |
 | 设置 | 从 DSH 已激活的文本模型中选择整理模型，并按需开启详细 Debug 日志；凭据和每个 route 的模型能力仍由 DSH 管理 |
-| Status | 展示 root、字节统计、错误和最近操作状态 |
+
+页面顶部另有只读状态摘要，展示本机 memory root、字节数和 Workspace 数量；错误与最近操作结果在当前页面就地显示。
 
 Browser 与 Host 是两个 Cordis tree。Browser 只能通过 `/memory` loopback Connection RPC 使用受校验的业务值，不能直接访问 Host `ctx`、文件系统、`MemoryStore` 或 `SessionPersistence`。
 

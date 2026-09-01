@@ -52,16 +52,16 @@
 
 ## M3：手动 Session Consolidator
 
-状态：实现完成，发布前验证收尾中。真实 DSH 成功与非法 proposal 失败链路已通过；自动组装回放和发布 GIF 尚待补充。
+状态：实现完成，发布前验证收尾中。Global/Workspace 整理已通过真实 Web 使用验证，非法 proposal 失败链路已通过；自动组装回放和发布 GIF 尚待补充。
 
 详细流程、数据契约、状态机和实施切片见 [session-consolidation.md](session-consolidation.md)。
 
-1. [完成] 冻结 source Session revision、完整逻辑事件与当前 Workspace generation；
-2. [实现完成，组装验证待补] 创建受限 worker Agent/Session，使用专属运行 cwd，并在 Web Host 中挂到独立的 `Memory Consolidation` Workspace；
-3. [实现完成，组装验证待补] 将完整逻辑事件确定性投影为可回放的 turn evidence，并与现有 Workspace 记忆一起通过 user-role 消息提供；
-4. [完成] 接收并校验 `put | delete | no-change` 结构化 proposal，计算与 commit 一致的 preview；
-5. [完成] 二次检查 source 与 target revision；
-6. [完成] 通过 durable intent 与 `MemoryStore` CAS 一次提交，并收敛三个 crash-recovery 分支；
+1. [完成] 冻结 source Session revision、完整逻辑事件、Global 与当前 Workspace generation；
+2. [实现完成，自动组装验证待补] 创建受限的多轮 worker Agent/Session，使用专属运行 cwd，并在 Web Host 中挂到独立的 `Memory Consolidation` Workspace；
+3. [实现完成，自动组装验证待补] 将 turn evidence、Global 正文与现有 Workspace 记忆通过可回放的 user-role 消息提供；
+4. [完成] 接收并校验 Global `replace-global`、Workspace `put | delete` 与 `no-change` proposal，计算与 commit 一致的双作用域 preview；
+5. [完成] 二次检查 source 与 Global/Workspace target revision；
+6. [完成] 通过 durable intent 与 `MemoryStore` CAS 提交双作用域变化，并收敛 crash-recovery 分支；
 7. [完成] 写入稳定 Markdown receipt，保留 attempt 历史、覆盖失败状态，并在 source revision 已增长时优先恢复旧 `committing` review；
 8. [完成] 接通 `sessions/consolidate` 与 Sessions UI，并通过真实 Web 成功整理验证；
 9. [完成] 接入 DSH 活跃文本模型目录，保存独立整理 route，真实 worker 已使用所选 route；输出预算通过统一模型能力解析适配每个 route；

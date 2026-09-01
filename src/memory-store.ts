@@ -71,6 +71,15 @@ export interface WorkspaceMemoryPreview extends WorkspaceMemoryView {
   readonly changed: boolean
 }
 
+export interface GlobalMemoryView {
+  readonly content: string
+  readonly revision: MemoryRevision
+}
+
+export interface GlobalMemoryPreview extends GlobalMemoryView {
+  readonly changed: boolean
+}
+
 /** One atomic Workspace mutation. */
 export type WorkspaceMemoryChange =
   | { readonly action: 'put'; readonly record: WorkspaceMemory }
@@ -337,6 +346,35 @@ export class MarkdownMemoryStore extends Service {
       release?.()
       if (this.locks.get(key) === queued) this.locks.delete(key)
     }
+  }
+}
+
+/** Normalize and preview a complete Global document replacement. */
+export function previewGlobalMemory(current: GlobalMemoryView, content: string): GlobalMemoryPreview {
+  const normalized = normalizeMarkdown(content)
+  const changed = normalized !== current.content
+  return {
+    content: changed ? normalized : current.content,
+    revision: changed ? revisionOf(normalized) : current.revision,
+    changed,
+  }
+}
+
+/** Reconstruct a normalized Global view from replayed model-visible content. */
+export function globalMemoryViewOf(content: string): GlobalMemoryView {
+  const normalized = normalizeMarkdown(content)
+  return { content: normalized, revision: revisionOf(normalized) }
+}
+
+/** Reconstruct a Workspace view from replayed model-visible records. */
+export function workspaceMemoryViewOf(records: readonly WorkspaceMemory[]): WorkspaceMemoryView {
+  const normalized = [...records].map(normalizeWorkspaceRecord)
+    .sort((left, right) => left.name.localeCompare(right.name, 'en'))
+  for (const record of normalized) validateRecord(record)
+  return {
+    records: normalized,
+    index: renderIndex(normalized),
+    revision: workspaceRevision(normalized.map(record => [`${record.name}.md`, serializeWorkspaceRecord(record)])),
   }
 }
 

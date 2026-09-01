@@ -53,6 +53,22 @@ async function workspace(): Promise<{
 }
 
 describe('consolidation proposal planning', () => {
+  it('previews a Global replacement alongside Workspace changes', async () => {
+    const target = await workspace()
+    const global = await target.store.readGlobal()
+    const planned = parseConsolidationProposal({
+      outcome: 'changes',
+      changes: [{
+        action: 'replace-global',
+        content: `${global.content}\n- Prefer concise answers.`,
+        evidence: [{ fromSeq: 0, toSeq: 0 }],
+      }],
+    }, { sourceEvidence: evidence, global, workspace: target.view })
+
+    expect(planned.globalPreview).toMatchObject({ changed: true, content: expect.stringContaining('Prefer concise answers') })
+    expect(planned.preview).toMatchObject({ changed: false, revision: target.view.revision })
+  })
+
   it('closes the schema, canonicalizes changes, and previews the committed revision', async () => {
     const target = await workspace()
     const planned = parseConsolidationProposal({
@@ -74,7 +90,7 @@ describe('consolidation proposal planning', () => {
           evidence: [{ fromSeq: 1, toSeq: 1 }],
         },
       ],
-    }, { sourceEvidence: evidence, workspace: target.view })
+    }, { sourceEvidence: evidence, global: await target.store.readGlobal(), workspace: target.view })
 
     expect(planned.proposal).toEqual({
       outcome: 'changes',
@@ -106,7 +122,7 @@ describe('consolidation proposal planning', () => {
     const committed = await target.store.commitWorkspace({
       scope: target.scope,
       expectedRevision: target.view.revision,
-      changes: planned.proposal.changes.map(change => change.action === 'put'
+      changes: planned.proposal.changes.filter(change => change.action !== 'replace-global').map(change => change.action === 'put'
         ? { action: 'put', record: change.record }
         : { action: 'delete', name: change.name }),
     })
@@ -124,7 +140,7 @@ describe('consolidation proposal planning', () => {
         record: { ...stable, content: stable.content.trimEnd() },
         evidence: [{ fromSeq: 0, toSeq: 0 }],
       }],
-    }, { sourceEvidence: evidence, workspace: target.view })
+    }, { sourceEvidence: evidence, global: await target.store.readGlobal(), workspace: target.view })
 
     expect(planned.proposal).toEqual({ outcome: 'no-change', changes: [] })
     expect(planned.preview).toMatchObject({ changed: false, revision: target.view.revision })
@@ -134,7 +150,7 @@ describe('consolidation proposal planning', () => {
     const target = await workspace()
     expect(parseConsolidationProposal(
       { outcome: 'no-change', changes: [] },
-      { sourceEvidence: [], workspace: target.view },
+      { sourceEvidence: [], global: await target.store.readGlobal(), workspace: target.view },
     )).toMatchObject({
       proposal: { outcome: 'no-change', changes: [] },
       preview: { changed: false, revision: target.view.revision },
@@ -186,17 +202,24 @@ describe('consolidation proposal planning', () => {
     }, /more than one change/],
   ])('rejects %s', async (_name, value, pattern) => {
     const target = await workspace()
-    expect(() => parseConsolidationProposal(value, { sourceEvidence: evidence, workspace: target.view }))
+    const global = await target.store.readGlobal()
+    expect(() => parseConsolidationProposal(value, {
+      sourceEvidence: evidence,
+      global,
+      workspace: target.view,
+    }))
       .toThrow(pattern as RegExp)
   })
 
   it('rejects malformed evidence ranges separately from model proposal validation', async () => {
     const target = await workspace()
+    const global = await target.store.readGlobal()
     expect(() => parseConsolidationProposal({
       outcome: 'changes',
       changes: [{ action: 'delete', name: 'obsolete-rule', evidence: [{ fromSeq: 0, toSeq: 0 }] }],
     }, {
       sourceEvidence: [evidence[1]!, evidence[0]!],
+      global,
       workspace: target.view,
     })).toThrow(TypeError)
     expect(() => parseConsolidationProposal({
@@ -204,6 +227,7 @@ describe('consolidation proposal planning', () => {
       changes: [{ action: 'delete', name: 'obsolete-rule', evidence: [{ fromSeq: 0, toSeq: 0 }] }],
     }, {
       sourceEvidence: [evidence[1]!, evidence[0]!],
+      global,
       workspace: target.view,
     })).not.toThrow(ConsolidationProposalError)
   })

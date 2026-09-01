@@ -65,6 +65,8 @@ dsh web --no-open
 11. 触发新的整理 attempt 后，确认 DSH 原生 Session 页创建或复用 `Memory Consolidation` Workspace，worker 出现在其中而不是 source Workspace 或“未分组”；其物理日志使用 `$DSH_HOME/memory/consolidator-workspace` 派生的 Session 目录。打开该 worker 确认历史可读，再返回 Memory 会话整理页面确认整个 `Memory Consolidation` Workspace 不显示，其中任意 Session 都不能通过直接 RPC 整理。既有 worker Session 不自动迁移。
 12. 选择一个 DSH 声明较低 `defaultMaxTokens` 的模型和一个较高或未知上限的模型分别整理；开启 Debug 时确认 `worker-model-budget-resolved` 的 `effectiveMaxTokens` 前者不超过模型上限，后者不超过插件的 8192 ceiling。
 13. 在 DSH 原生 Session 页面归档一个普通 Session，刷新 Memory 的“会话整理”，确认该 Session 完全消失；直接调用其 `sessions/consolidate` 也应在创建 worker 或调用模型前被拒绝。未归档 Session 仍正常显示。
+14. 选择一段同时包含跨项目偏好和当前项目事实的 Session，整理后分别检查“全局记忆”和“工作区记忆”及其 Markdown 文件；项目事实不应进入 Global，两个页面的结果应与 receipt 变化数一致。
+15. 如需确认多轮修正链路，开启 Debug 后使用会先产生非法 draft 的测试模型；确认同一 attempt 的 `proposalCalls` 增加、非法 draft 得到 rejected 结果，随后合法的 `final=true` proposal 才结束 worker。正常模型可以在一轮内直接完成，不强制产生多轮调用。
 
 Host entry 受 Node ESM module cache 影响，修改后必须重启 Web。Client bundle 变更需要重建、重新安装并刷新页面。
 
