@@ -99,10 +99,10 @@ pnpm run check
 
 ```sh
 git add package.json
-git commit -m "chore: release v0.1.1"
-git tag v0.1.1
+git commit -m "chore: release v0.1.2"
+git tag v0.1.2
 git push origin main
-git push origin v0.1.1
+git push origin v0.1.2
 ```
 
 最后一次 push 会触发自动发布。`npm publish` 会执行仓库现有的 `prepack`，因此远端会再次运行 `pnpm run check`；npm Trusted Publishing 会自动为公开仓库中的公开包生成 provenance。
