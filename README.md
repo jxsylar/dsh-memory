@@ -19,15 +19,23 @@
 
 <div align="center">
 
-[设计灵感](#设计灵感claude-code--codex) · [核心能力](#核心能力) · [安装](#安装) · [开始使用](#开始使用) · [数据与隐私](#数据与隐私) · [文档](#文档)
+[设计灵感](#设计灵感claude-code--codex) · [核心能力](#核心能力) · [安装](#安装) · [开始使用](#开始使用) · [评测](#评测) · [数据与隐私](#数据与隐私) · [文档](#文档)
 
 </div>
 
-## 为什么需要它
+## 让记忆延续到下一次对话
 
 普通 Session 结束后，Agent 很容易忘记用户偏好、项目约束和已经验证过的经验。`dsh-memory` 把这些长期信息保存在用户本机的 Markdown 文件中，并在后续请求中只提供 Global 记忆和当前 Workspace 的记忆索引。
 
 它不依赖外部记忆数据库或专用记忆服务，也不把所有历史对话塞回上下文：Agent 先看到小型索引，再使用 DSH 已有的文件搜索工具按需读取少量详细记忆。
+
+## 评测
+
+仓库内置与插件发布代码隔离的 [LoCoMo-10 评测](benchmark/locomo/README.md)，可对比无记忆 baseline、仅在线记忆、在线记忆加 Session 整理三种模式。评测文档提供 `conv-26` 和全部 10 个 sample 的可复制命令、环境变量、Judge、Score 与[交互式结果报告](benchmark/locomo/locomo10-report.html)。
+
+![LoCoMo-10 三种模式准确率对比](docs/assets/locomo10-accuracy.svg)
+
+本次单次运行中，Baseline 为 2.60%，Memory 为 73.05%，Memory + Consolidate 为 77.60%。完整结果、实验限制和逐题回答请查看交互式报告。
 
 ## 设计灵感：Claude Code × Codex
 
@@ -161,6 +169,7 @@ pnpm run check
 - [Session 整理设计](docs/session-consolidation.md)：完整流程、状态机和数据契约；
 - [路线图](docs/roadmap.md)：已完成里程碑与后续方向；
 - [开发指南](docs/development.md)：命令、验证矩阵和发布步骤；
+- [LoCoMo-10 评测](benchmark/locomo/README.md)：隔离运行、Judge、Score 与成本统计；
 - [决策记录](docs/decisions/implemented/)：非平凡架构、行为和协议选择。
 
 ## License

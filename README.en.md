@@ -19,15 +19,23 @@
 
 <div align="center">
 
-[Design inspiration](#design-inspiration-claude-code--codex) · [Capabilities](#core-capabilities) · [Installation](#installation) · [Getting started](#getting-started) · [Data and privacy](#data-and-privacy) · [Documentation](#documentation)
+[Design inspiration](#design-inspiration-claude-code--codex) · [Capabilities](#core-capabilities) · [Installation](#installation) · [Getting started](#getting-started) · [Evaluation](#evaluation) · [Data and privacy](#data-and-privacy) · [Documentation](#documentation)
 
 </div>
 
-## Why dsh-memory
+## Memory that carries forward
 
 Once a Session ends, an Agent can easily lose user preferences, project constraints, and lessons that were already verified. `dsh-memory` keeps this long-term information in readable Markdown files on the user's machine. Later requests receive only Global memory and the current Workspace index.
 
 It does not require an external memory database or dedicated memory service, nor does it put every historical conversation back into context. The Agent sees a small index first and uses DSH's existing file tools to open only the relevant detailed memories.
+
+## Evaluation
+
+The repository includes a [LoCoMo-10 benchmark](benchmark/locomo/README.md) isolated from the published plugin code. It compares plain DSH, online memory only, and online memory plus Session consolidation. The benchmark guide provides copyable commands, environment variables, Judge, and Score steps for `conv-26` or all 10 samples, together with a self-contained [interactive results report](benchmark/locomo/locomo10-report.html).
+
+![LoCoMo-10 accuracy across three modes](docs/assets/locomo10-accuracy.svg)
+
+In this single run, Baseline scored 2.60%, Memory scored 73.05%, and Memory + Consolidate scored 77.60%. See the interactive report for complete results, experiment limitations, and per-question answers.
 
 ## Design inspiration: Claude Code × Codex
 
@@ -161,6 +169,7 @@ Run `pnpm run check` before submitting code. See [docs/development.md](docs/deve
 - [Session consolidation](docs/session-consolidation.md): full flow, state machine, and data contracts;
 - [Roadmap](docs/roadmap.md): completed milestones and future directions;
 - [Development](docs/development.md): commands, verification matrix, and release procedure;
+- [LoCoMo-10 benchmark](benchmark/locomo/README.md): isolated runs, Judge, Score, and cost reporting;
 - [Decision records](docs/decisions/implemented/): non-trivial architecture, behavior, and protocol decisions.
 
 The detailed engineering documents are currently maintained in Chinese. Contributions improving their English accessibility are welcome.

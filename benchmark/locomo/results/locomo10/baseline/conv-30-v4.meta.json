@@ -1,0 +1,23 @@
+{
+  "mode": "baseline",
+  "sample_id": "conv-30",
+  "question_count": 81,
+  "excluded_categories": [
+    5
+  ],
+  "question_date": "2023-07-23",
+  "provider": "deepseek-official",
+  "model": "deepseek-v4-flash",
+  "max_tokens": null,
+  "qa_concurrency": 4,
+  "qa_wall_elapsed_ms": 317744,
+  "debug": false,
+  "ingest_prompt_version": null,
+  "runner_version": 4,
+  "agent_policy_version": "isolated-memory-read-v2",
+  "profile": "sdk",
+  "data_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "deepseek_harness_sdk_version": "0.1.2rc1",
+  "ingestion": [],
+  "consolidation": []
+}

@@ -1,0 +1,1179 @@
+{
+  "mode": "memory",
+  "sample_id": "conv-49",
+  "question_count": 156,
+  "excluded_categories": [
+    5
+  ],
+  "question_date": "2024-01-11",
+  "provider": "deepseek-official",
+  "model": "deepseek-v4-flash",
+  "max_tokens": null,
+  "qa_concurrency": 10,
+  "qa_wall_elapsed_ms": 2346701,
+  "debug": false,
+  "ingest_prompt_version": "v2",
+  "runner_version": 4,
+  "agent_policy_version": "isolated-memory-read-v2",
+  "profile": "locomo-memory",
+  "data_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "deepseek_harness_sdk_version": "0.1.2rc1",
+  "ingestion": [
+    {
+      "session_id": "session-locomo-conv-49-001",
+      "elapsed_ms": 24310,
+      "model_calls": 4,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 972,
+            "outputTokens": 451,
+            "totalTokens": 2191,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 334
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 108,
+            "outputTokens": 1698,
+            "totalTokens": 3982,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 1456
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 42,
+            "outputTokens": 242,
+            "totalTokens": 4252,
+            "cacheReadTokens": 3968,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 371,
+            "outputTokens": 2,
+            "totalTokens": 4597,
+            "cacheReadTokens": 4224,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-002",
+      "elapsed_ms": 14244,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1098,
+            "outputTokens": 251,
+            "totalTokens": 2117,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 17
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 496,
+            "outputTokens": 1035,
+            "totalTokens": 3579,
+            "cacheReadTokens": 2048,
+            "reasoningTokens": 620
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 150,
+            "outputTokens": 2,
+            "totalTokens": 3608,
+            "cacheReadTokens": 3456,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-003",
+      "elapsed_ms": 12411,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1070,
+            "outputTokens": 322,
+            "totalTokens": 2160,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 88
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 732,
+            "outputTokens": 918,
+            "totalTokens": 3698,
+            "cacheReadTokens": 2048,
+            "reasoningTokens": 401
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 141,
+            "outputTokens": 2,
+            "totalTokens": 3727,
+            "cacheReadTokens": 3584,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-004",
+      "elapsed_ms": 11825,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1068,
+            "outputTokens": 255,
+            "totalTokens": 2091,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 21
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 745,
+            "outputTokens": 1114,
+            "totalTokens": 3907,
+            "cacheReadTokens": 2048,
+            "reasoningTokens": 392
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 94,
+            "outputTokens": 2,
+            "totalTokens": 3936,
+            "cacheReadTokens": 3840,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-005",
+      "elapsed_ms": 18811,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1215,
+            "outputTokens": 276,
+            "totalTokens": 2259,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 42
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 995,
+            "outputTokens": 1101,
+            "totalTokens": 4272,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 591
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 75,
+            "outputTokens": 2,
+            "totalTokens": 4301,
+            "cacheReadTokens": 4224,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-006",
+      "elapsed_ms": 22524,
+      "model_calls": 4,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1158,
+            "outputTokens": 251,
+            "totalTokens": 2177,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 17
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 975,
+            "outputTokens": 1479,
+            "totalTokens": 4630,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 524
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1585,
+            "outputTokens": 955,
+            "totalTokens": 5612,
+            "cacheReadTokens": 3072,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 135,
+            "outputTokens": 2,
+            "totalTokens": 5641,
+            "cacheReadTokens": 5504,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-007",
+      "elapsed_ms": 56783,
+      "model_calls": 4,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1113,
+            "outputTokens": 252,
+            "totalTokens": 2133,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 18
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1208,
+            "outputTokens": 3979,
+            "totalTokens": 7235,
+            "cacheReadTokens": 2048,
+            "reasoningTokens": 3643
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1022,
+            "outputTokens": 1847,
+            "totalTokens": 10037,
+            "cacheReadTokens": 7168,
+            "reasoningTokens": 727
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 80,
+            "outputTokens": 2,
+            "totalTokens": 10066,
+            "cacheReadTokens": 9984,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-008",
+      "elapsed_ms": 115450,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1480,
+            "outputTokens": 259,
+            "totalTokens": 2507,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 25
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1216,
+            "outputTokens": 12831,
+            "totalTokens": 16479,
+            "cacheReadTokens": 2432,
+            "reasoningTokens": 11933
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 474,
+            "outputTokens": 2,
+            "totalTokens": 16860,
+            "cacheReadTokens": 16384,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-009",
+      "elapsed_ms": 18703,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1242,
+            "outputTokens": 359,
+            "totalTokens": 2369,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 13
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1706,
+            "outputTokens": 1786,
+            "totalTokens": 5796,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 1342
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 501,
+            "outputTokens": 3,
+            "totalTokens": 6264,
+            "cacheReadTokens": 5760,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-010",
+      "elapsed_ms": 11297,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1128,
+            "outputTokens": 468,
+            "totalTokens": 2364,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 119
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1606,
+            "outputTokens": 800,
+            "totalTokens": 4710,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 517
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 608,
+            "outputTokens": 2,
+            "totalTokens": 5218,
+            "cacheReadTokens": 4608,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-011",
+      "elapsed_ms": 25571,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1430,
+            "outputTokens": 738,
+            "totalTokens": 2936,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 31
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2778,
+            "outputTokens": 1787,
+            "totalTokens": 7381,
+            "cacheReadTokens": 2816,
+            "reasoningTokens": 1236
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2461,
+            "outputTokens": 2,
+            "totalTokens": 7967,
+            "cacheReadTokens": 5504,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-012",
+      "elapsed_ms": 44002,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1279,
+            "outputTokens": 750,
+            "totalTokens": 2797,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 286
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2056,
+            "outputTokens": 2953,
+            "totalTokens": 7697,
+            "cacheReadTokens": 2688,
+            "reasoningTokens": 2522
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 695,
+            "outputTokens": 2,
+            "totalTokens": 8377,
+            "cacheReadTokens": 7680,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-013",
+      "elapsed_ms": 21826,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1310,
+            "outputTokens": 681,
+            "totalTokens": 2759,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 217
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2018,
+            "outputTokens": 1649,
+            "totalTokens": 6355,
+            "cacheReadTokens": 2688,
+            "reasoningTokens": 1211
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 851,
+            "outputTokens": 2,
+            "totalTokens": 7125,
+            "cacheReadTokens": 6272,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-014",
+      "elapsed_ms": 23786,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1547,
+            "outputTokens": 801,
+            "totalTokens": 3116,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 333
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1927,
+            "outputTokens": 1385,
+            "totalTokens": 6384,
+            "cacheReadTokens": 3072,
+            "reasoningTokens": 984
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 970,
+            "outputTokens": 2,
+            "totalTokens": 7244,
+            "cacheReadTokens": 6272,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-015",
+      "elapsed_ms": 18781,
+      "model_calls": 4,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1472,
+            "outputTokens": 583,
+            "totalTokens": 2823,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 115
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1882,
+            "outputTokens": 709,
+            "totalTokens": 5407,
+            "cacheReadTokens": 2816,
+            "reasoningTokens": 362
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 826,
+            "outputTokens": 346,
+            "totalTokens": 5780,
+            "cacheReadTokens": 4608,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 968,
+            "outputTokens": 2,
+            "totalTokens": 6730,
+            "cacheReadTokens": 5760,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-016",
+      "elapsed_ms": 13372,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2008,
+            "outputTokens": 572,
+            "totalTokens": 3348,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 104
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1792,
+            "outputTokens": 862,
+            "totalTokens": 5982,
+            "cacheReadTokens": 3328,
+            "reasoningTokens": 494
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1132,
+            "outputTokens": 2,
+            "totalTokens": 7022,
+            "cacheReadTokens": 5888,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-017",
+      "elapsed_ms": 27032,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1981,
+            "outputTokens": 830,
+            "totalTokens": 3579,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 362
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1916,
+            "outputTokens": 1491,
+            "totalTokens": 6863,
+            "cacheReadTokens": 3456,
+            "reasoningTokens": 989
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1207,
+            "outputTokens": 2,
+            "totalTokens": 7993,
+            "cacheReadTokens": 6784,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-018",
+      "elapsed_ms": 26694,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1746,
+            "outputTokens": 519,
+            "totalTokens": 3033,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 51
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2036,
+            "outputTokens": 883,
+            "totalTokens": 5863,
+            "cacheReadTokens": 2944,
+            "reasoningTokens": 473
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1317,
+            "outputTokens": 2,
+            "totalTokens": 7079,
+            "cacheReadTokens": 5760,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-019",
+      "elapsed_ms": 14972,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1890,
+            "outputTokens": 588,
+            "totalTokens": 3246,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 126
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2011,
+            "outputTokens": 862,
+            "totalTokens": 6073,
+            "cacheReadTokens": 3200,
+            "reasoningTokens": 623
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1314,
+            "outputTokens": 2,
+            "totalTokens": 7332,
+            "cacheReadTokens": 6016,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-020",
+      "elapsed_ms": 16617,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1934,
+            "outputTokens": 620,
+            "totalTokens": 3322,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 154
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1958,
+            "outputTokens": 1322,
+            "totalTokens": 6480,
+            "cacheReadTokens": 3200,
+            "reasoningTokens": 937
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1423,
+            "outputTokens": 2,
+            "totalTokens": 7825,
+            "cacheReadTokens": 6400,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-021",
+      "elapsed_ms": 19688,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2227,
+            "outputTokens": 629,
+            "totalTokens": 3624,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 163
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1826,
+            "outputTokens": 1358,
+            "totalTokens": 6768,
+            "cacheReadTokens": 3584,
+            "reasoningTokens": 954
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1541,
+            "outputTokens": 2,
+            "totalTokens": 8199,
+            "cacheReadTokens": 6656,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-022",
+      "elapsed_ms": 22022,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2192,
+            "outputTokens": 682,
+            "totalTokens": 3642,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 216
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1905,
+            "outputTokens": 837,
+            "totalTokens": 6326,
+            "cacheReadTokens": 3584,
+            "reasoningTokens": 400
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1569,
+            "outputTokens": 3,
+            "totalTokens": 7844,
+            "cacheReadTokens": 6272,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-023",
+      "elapsed_ms": 20171,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2650,
+            "outputTokens": 727,
+            "totalTokens": 4145,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 255
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1601,
+            "outputTokens": 946,
+            "totalTokens": 6643,
+            "cacheReadTokens": 4096,
+            "reasoningTokens": 602
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1720,
+            "outputTokens": 2,
+            "totalTokens": 8250,
+            "cacheReadTokens": 6528,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-024",
+      "elapsed_ms": 21804,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2617,
+            "outputTokens": 642,
+            "totalTokens": 4027,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 174
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1828,
+            "outputTokens": 1950,
+            "totalTokens": 7746,
+            "cacheReadTokens": 3968,
+            "reasoningTokens": 1516
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1761,
+            "outputTokens": 2,
+            "totalTokens": 9443,
+            "cacheReadTokens": 7680,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-49-025",
+      "elapsed_ms": 20766,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2548,
+            "outputTokens": 775,
+            "totalTokens": 4091,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 73
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2523,
+            "outputTokens": 1230,
+            "totalTokens": 7721,
+            "cacheReadTokens": 3968,
+            "reasoningTokens": 746
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1826,
+            "outputTokens": 27,
+            "totalTokens": 9533,
+            "cacheReadTokens": 7680,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    }
+  ],
+  "consolidation": []
+}

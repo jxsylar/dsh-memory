@@ -1,0 +1,1307 @@
+{
+  "mode": "memory-consolidate",
+  "sample_id": "conv-26",
+  "question_count": 152,
+  "excluded_categories": [
+    5
+  ],
+  "question_date": "2023-10-22",
+  "provider": "deepseek-official",
+  "model": "deepseek-v4-flash",
+  "max_tokens": null,
+  "qa_concurrency": 10,
+  "qa_wall_elapsed_ms": 121126,
+  "debug": false,
+  "ingest_prompt_version": "v2",
+  "runner_version": 4,
+  "agent_policy_version": "isolated-memory-read-v2",
+  "profile": "locomo-memory",
+  "data_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "deepseek_harness_sdk_version": "0.1.2rc1",
+  "ingestion": [
+    {
+      "session_id": "session-locomo-conv-26-001",
+      "elapsed_ms": 82399,
+      "model_calls": 3,
+      "tool_calls": [
+        "memory_update",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 230,
+            "outputTokens": 8904,
+            "totalTokens": 10542,
+            "cacheReadTokens": 1408,
+            "reasoningTokens": 8635
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 420,
+            "outputTokens": 179,
+            "totalTokens": 11095,
+            "cacheReadTokens": 10496,
+            "reasoningTokens": 28
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 459,
+            "outputTokens": 2,
+            "totalTokens": 11469,
+            "cacheReadTokens": 11008,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-002",
+      "elapsed_ms": 17832,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 372,
+            "outputTokens": 346,
+            "totalTokens": 2254,
+            "cacheReadTokens": 1536,
+            "reasoningTokens": 224
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 282,
+            "outputTokens": 1827,
+            "totalTokens": 4285,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 1391
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 501,
+            "outputTokens": 2,
+            "totalTokens": 4727,
+            "cacheReadTokens": 4224,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-003",
+      "elapsed_ms": 16333,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1607,
+            "outputTokens": 159,
+            "totalTokens": 2534,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 37
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 430,
+            "outputTokens": 1798,
+            "totalTokens": 4660,
+            "cacheReadTokens": 2432,
+            "reasoningTokens": 1231
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 589,
+            "outputTokens": 2,
+            "totalTokens": 5199,
+            "cacheReadTokens": 4608,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-004",
+      "elapsed_ms": 12673,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 480,
+            "outputTokens": 160,
+            "totalTokens": 2304,
+            "cacheReadTokens": 1664,
+            "reasoningTokens": 38
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 369,
+            "outputTokens": 564,
+            "totalTokens": 3237,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 218
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 64,
+            "outputTokens": 3,
+            "totalTokens": 3267,
+            "cacheReadTokens": 3200,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-005",
+      "elapsed_ms": 18386,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1193,
+            "outputTokens": 307,
+            "totalTokens": 2268,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 185
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 511,
+            "outputTokens": 2050,
+            "totalTokens": 4737,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 1641
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 28,
+            "outputTokens": 3,
+            "totalTokens": 4767,
+            "cacheReadTokens": 4736,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-006",
+      "elapsed_ms": 22190,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1193,
+            "outputTokens": 374,
+            "totalTokens": 2335,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 252
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 516,
+            "outputTokens": 2624,
+            "totalTokens": 5444,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 1771
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 641,
+            "outputTokens": 2,
+            "totalTokens": 6019,
+            "cacheReadTokens": 5376,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-007",
+      "elapsed_ms": 13036,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 497,
+            "outputTokens": 340,
+            "totalTokens": 2757,
+            "cacheReadTokens": 1920,
+            "reasoningTokens": 218
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 688,
+            "outputTokens": 1145,
+            "totalTokens": 4521,
+            "cacheReadTokens": 2688,
+            "reasoningTokens": 569
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 68,
+            "outputTokens": 3,
+            "totalTokens": 4551,
+            "cacheReadTokens": 4480,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-008",
+      "elapsed_ms": 19440,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 501,
+            "outputTokens": 149,
+            "totalTokens": 2826,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 0
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 666,
+            "outputTokens": 2184,
+            "totalTokens": 5666,
+            "cacheReadTokens": 2816,
+            "reasoningTokens": 1376
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 61,
+            "outputTokens": 2,
+            "totalTokens": 5695,
+            "cacheReadTokens": 5632,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-009",
+      "elapsed_ms": 22716,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 562,
+            "outputTokens": 531,
+            "totalTokens": 2501,
+            "cacheReadTokens": 1408,
+            "reasoningTokens": 409
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 906,
+            "outputTokens": 1902,
+            "totalTokens": 5240,
+            "cacheReadTokens": 2432,
+            "reasoningTokens": 1499
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 754,
+            "outputTokens": 2,
+            "totalTokens": 5876,
+            "cacheReadTokens": 5120,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-010",
+      "elapsed_ms": 16070,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 624,
+            "outputTokens": 190,
+            "totalTokens": 2606,
+            "cacheReadTokens": 1792,
+            "reasoningTokens": 68
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 883,
+            "outputTokens": 1873,
+            "totalTokens": 5316,
+            "cacheReadTokens": 2560,
+            "reasoningTokens": 944
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 95,
+            "outputTokens": 3,
+            "totalTokens": 5346,
+            "cacheReadTokens": 5248,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-011",
+      "elapsed_ms": 12013,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1428,
+            "outputTokens": 135,
+            "totalTokens": 2331,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 13
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1050,
+            "outputTokens": 1445,
+            "totalTokens": 4799,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 439
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 90,
+            "outputTokens": 3,
+            "totalTokens": 4829,
+            "cacheReadTokens": 4736,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-012",
+      "elapsed_ms": 21643,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 592,
+            "outputTokens": 190,
+            "totalTokens": 2446,
+            "cacheReadTokens": 1664,
+            "reasoningTokens": 68
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1117,
+            "outputTokens": 2597,
+            "totalTokens": 6146,
+            "cacheReadTokens": 2432,
+            "reasoningTokens": 1442
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 29,
+            "outputTokens": 3,
+            "totalTokens": 6176,
+            "cacheReadTokens": 6144,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-013",
+      "elapsed_ms": 32752,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1448,
+            "outputTokens": 150,
+            "totalTokens": 2366,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 28
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1319,
+            "outputTokens": 4333,
+            "totalTokens": 7956,
+            "cacheReadTokens": 2304,
+            "reasoningTokens": 2610
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 781,
+            "outputTokens": 3,
+            "totalTokens": 8720,
+            "cacheReadTokens": 7936,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-014",
+      "elapsed_ms": 23466,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 699,
+            "outputTokens": 253,
+            "totalTokens": 3128,
+            "cacheReadTokens": 2176,
+            "reasoningTokens": 131
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1388,
+            "outputTokens": 2938,
+            "totalTokens": 7398,
+            "cacheReadTokens": 3072,
+            "reasoningTokens": 1594
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 129,
+            "outputTokens": 2,
+            "totalTokens": 7427,
+            "cacheReadTokens": 7296,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-015",
+      "elapsed_ms": 32097,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1825,
+            "outputTokens": 154,
+            "totalTokens": 2747,
+            "cacheReadTokens": 768,
+            "reasoningTokens": 32
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1519,
+            "outputTokens": 4397,
+            "totalTokens": 8604,
+            "cacheReadTokens": 2688,
+            "reasoningTokens": 2279
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 937,
+            "outputTokens": 2,
+            "totalTokens": 9515,
+            "cacheReadTokens": 8576,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-016",
+      "elapsed_ms": 80172,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 895,
+            "outputTokens": 371,
+            "totalTokens": 3058,
+            "cacheReadTokens": 1792,
+            "reasoningTokens": 249
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1686,
+            "outputTokens": 10890,
+            "totalTokens": 15520,
+            "cacheReadTokens": 2944,
+            "reasoningTokens": 8545
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1128,
+            "outputTokens": 2,
+            "totalTokens": 16618,
+            "cacheReadTokens": 15488,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-017",
+      "elapsed_ms": 18550,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1070,
+            "outputTokens": 151,
+            "totalTokens": 3141,
+            "cacheReadTokens": 1920,
+            "reasoningTokens": 29
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1688,
+            "outputTokens": 2541,
+            "totalTokens": 7301,
+            "cacheReadTokens": 3072,
+            "reasoningTokens": 814
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 32,
+            "outputTokens": 3,
+            "totalTokens": 7331,
+            "cacheReadTokens": 7296,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-018",
+      "elapsed_ms": 21722,
+      "model_calls": 3,
+      "tool_calls": [
+        "read",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1054,
+            "outputTokens": 137,
+            "totalTokens": 2855,
+            "cacheReadTokens": 1664,
+            "reasoningTokens": 15
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1894,
+            "outputTokens": 3140,
+            "totalTokens": 7850,
+            "cacheReadTokens": 2816,
+            "reasoningTokens": 1222
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 69,
+            "outputTokens": 3,
+            "totalTokens": 7880,
+            "cacheReadTokens": 7808,
+            "reasoningTokens": 0
+          }
+        }
+      ],
+      "agent_attempts": 1
+    },
+    {
+      "session_id": "session-locomo-conv-26-019",
+      "elapsed_ms": 16570,
+      "model_calls": 4,
+      "tool_calls": [
+        "read",
+        "memory_update",
+        "memory_update"
+      ],
+      "usage": [
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1021,
+            "outputTokens": 318,
+            "totalTokens": 2875,
+            "cacheReadTokens": 1536,
+            "reasoningTokens": 196
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 2098,
+            "outputTokens": 663,
+            "totalTokens": 5577,
+            "cacheReadTokens": 2816,
+            "reasoningTokens": 607
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 93,
+            "outputTokens": 990,
+            "totalTokens": 6587,
+            "cacheReadTokens": 5504,
+            "reasoningTokens": 31
+          }
+        },
+        {
+          "type": "usage",
+          "usage": {
+            "inputTokens": 1241,
+            "outputTokens": 94,
+            "totalTokens": 7863,
+            "cacheReadTokens": 6528,
+            "reasoningTokens": 92
+          }
+        }
+      ],
+      "agent_attempts": 1
+    }
+  ],
+  "consolidation": [
+    {
+      "session_id": "session-locomo-conv-26-001",
+      "status": "no-change",
+      "reviewId": "review-40c0575a3efb568c2193f2f1022ef7e3508eaeeddcfd0542295275573032ea07",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-40c0575a3efb568c2193f2f1022ef7e3508eaeeddcfd0542295275573032ea07-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-40c0575a3efb568c2193f2f1022ef7e3508eaeeddcfd0542295275573032ea07-attempt-1"
+      ],
+      "elapsed_ms": 5666,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 3523,
+          "outputTokens": 762,
+          "totalTokens": 5309,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 681
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-002",
+      "status": "committed",
+      "reviewId": "review-d33c8390295c57f28199813d27b1da287ce06b042b3c4ae5d91e33bbc2740c1f",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-d33c8390295c57f28199813d27b1da287ce06b042b3c4ae5d91e33bbc2740c1f-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-d33c8390295c57f28199813d27b1da287ce06b042b3c4ae5d91e33bbc2740c1f-attempt-1"
+      ],
+      "elapsed_ms": 35708,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 3718,
+          "outputTokens": 5771,
+          "totalTokens": 10513,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 4706
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-003",
+      "status": "no-change",
+      "reviewId": "review-b3f2dcf0fee76547a5fbd3445ecf11757e83bfaeceec8b55213888b2cb12ae20",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-b3f2dcf0fee76547a5fbd3445ecf11757e83bfaeceec8b55213888b2cb12ae20-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-b3f2dcf0fee76547a5fbd3445ecf11757e83bfaeceec8b55213888b2cb12ae20-attempt-1"
+      ],
+      "elapsed_ms": 6535,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4194,
+          "outputTokens": 831,
+          "totalTokens": 6049,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 750
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-004",
+      "status": "committed",
+      "reviewId": "review-f8fd8f73d1abd06771a8b071546143e0c811aa9fb145772141412ac071605ba8",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-f8fd8f73d1abd06771a8b071546143e0c811aa9fb145772141412ac071605ba8-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-f8fd8f73d1abd06771a8b071546143e0c811aa9fb145772141412ac071605ba8-attempt-1"
+      ],
+      "elapsed_ms": 35752,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 3846,
+          "outputTokens": 5605,
+          "totalTokens": 10475,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 4380
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-005",
+      "status": "committed",
+      "reviewId": "review-5c96a1715d42501408a3018402162df4e9d6de37ec354389c8e4e030dc79e3d7",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-5c96a1715d42501408a3018402162df4e9d6de37ec354389c8e4e030dc79e3d7-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-5c96a1715d42501408a3018402162df4e9d6de37ec354389c8e4e030dc79e3d7-attempt-1"
+      ],
+      "elapsed_ms": 34538,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 3828,
+          "outputTokens": 5486,
+          "totalTokens": 10338,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 4171
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-006",
+      "status": "no-change",
+      "reviewId": "review-f6b6fc2772683e7ae2bc20993e33b97f25faf6ec37a19d3e6d18f677ea1dfb24",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-f6b6fc2772683e7ae2bc20993e33b97f25faf6ec37a19d3e6d18f677ea1dfb24-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-f6b6fc2772683e7ae2bc20993e33b97f25faf6ec37a19d3e6d18f677ea1dfb24-attempt-1"
+      ],
+      "elapsed_ms": 6653,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 3929,
+          "outputTokens": 907,
+          "totalTokens": 5860,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 826
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-007",
+      "status": "committed",
+      "reviewId": "review-3f4a04353d6722e4a16899824ada52f56a439a852d6f2f814f750217d717f284",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-3f4a04353d6722e4a16899824ada52f56a439a852d6f2f814f750217d717f284-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-3f4a04353d6722e4a16899824ada52f56a439a852d6f2f814f750217d717f284-attempt-1"
+      ],
+      "elapsed_ms": 31174,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4346,
+          "outputTokens": 5171,
+          "totalTokens": 10541,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 3704
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-008",
+      "status": "committed",
+      "reviewId": "review-5c090a799b1376c963735cfaa16c9cce05f4b32dc35b97b59ba0569726dd91a1",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-5c090a799b1376c963735cfaa16c9cce05f4b32dc35b97b59ba0569726dd91a1-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-5c090a799b1376c963735cfaa16c9cce05f4b32dc35b97b59ba0569726dd91a1-attempt-1"
+      ],
+      "elapsed_ms": 31853,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4771,
+          "outputTokens": 4506,
+          "totalTokens": 10301,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 3023
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-009",
+      "status": "no-change",
+      "reviewId": "review-e03a6daf4fb98d978b20a42488daab0ae67650a2fff337b44c1d590f3d220acb",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-e03a6daf4fb98d978b20a42488daab0ae67650a2fff337b44c1d590f3d220acb-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-e03a6daf4fb98d978b20a42488daab0ae67650a2fff337b44c1d590f3d220acb-attempt-1"
+      ],
+      "elapsed_ms": 6985,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4057,
+          "outputTokens": 848,
+          "totalTokens": 5929,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 767
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-010",
+      "status": "committed",
+      "reviewId": "review-f49ef67e0179d08ae3c58208ccfc91890393f4926d4bfebf5a0ef44c1169a363",
+      "attempt": 1,
+      "skipped": true,
+      "worker_session_id": "session-memory-review-f49ef67e0179d08ae3c58208ccfc91890393f4926d4bfebf5a0ef44c1169a363-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-f49ef67e0179d08ae3c58208ccfc91890393f4926d4bfebf5a0ef44c1169a363-attempt-1"
+      ],
+      "elapsed_ms": 23429,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4426,
+          "outputTokens": 3852,
+          "totalTokens": 9302,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 2254
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-011",
+      "status": "invalid-proposal",
+      "reviewId": "review-dd108bcff999cf5531d3e138bedfb0b2f35eb99d7bd33ea0fbd9625d31cd3e63",
+      "attempt": 2,
+      "changeCount": 0,
+      "ignored": true,
+      "ignore_reason": "max-tokens",
+      "resumed": true,
+      "worker_session_id": "session-memory-review-dd108bcff999cf5531d3e138bedfb0b2f35eb99d7bd33ea0fbd9625d31cd3e63-attempt-2",
+      "worker_session_ids": [
+        "session-memory-review-dd108bcff999cf5531d3e138bedfb0b2f35eb99d7bd33ea0fbd9625d31cd3e63-attempt-1",
+        "session-memory-review-dd108bcff999cf5531d3e138bedfb0b2f35eb99d7bd33ea0fbd9625d31cd3e63-attempt-2"
+      ],
+      "elapsed_ms": 104433,
+      "model_calls": 2,
+      "usage": [
+        {
+          "inputTokens": 4314,
+          "outputTokens": 8192,
+          "totalTokens": 13530,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 8192
+        },
+        {
+          "inputTokens": 90,
+          "outputTokens": 8192,
+          "totalTokens": 13530,
+          "cacheReadTokens": 5248,
+          "reasoningTokens": 6542
+        }
+      ],
+      "finish_reason": "max-tokens"
+    },
+    {
+      "session_id": "session-locomo-conv-26-012",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-12bb511d43e74f6bcfd64b7d4fbb96f541ced5df2b580e1668c2d1ab70a21aa6",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-12bb511d43e74f6bcfd64b7d4fbb96f541ced5df2b580e1668c2d1ab70a21aa6-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-12bb511d43e74f6bcfd64b7d4fbb96f541ced5df2b580e1668c2d1ab70a21aa6-attempt-1"
+      ],
+      "elapsed_ms": 6409,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4383,
+          "outputTokens": 792,
+          "totalTokens": 6199,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 711
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-013",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-f310ce569bda9a28f8e9adf73b7f6935036866e0897ddb08befdbfaa2c6b606d",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-f310ce569bda9a28f8e9adf73b7f6935036866e0897ddb08befdbfaa2c6b606d-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-f310ce569bda9a28f8e9adf73b7f6935036866e0897ddb08befdbfaa2c6b606d-attempt-1"
+      ],
+      "elapsed_ms": 7603,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4348,
+          "outputTokens": 1000,
+          "totalTokens": 6372,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 919
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-014",
+      "status": "invalid-proposal",
+      "recovered": false,
+      "reviewId": "review-acf6d6d9c2ee5121f9e916a652d287704e3465263399575d9cbef46a042d42c5",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "ignored": true,
+      "ignore_reason": "max-tokens",
+      "worker_session_id": "session-memory-review-acf6d6d9c2ee5121f9e916a652d287704e3465263399575d9cbef46a042d42c5-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-acf6d6d9c2ee5121f9e916a652d287704e3465263399575d9cbef46a042d42c5-attempt-1"
+      ],
+      "elapsed_ms": 58824,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4907,
+          "outputTokens": 8192,
+          "totalTokens": 14123,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 8192
+        }
+      ],
+      "finish_reason": "max-tokens"
+    },
+    {
+      "session_id": "session-locomo-conv-26-015",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-760320077e7f09338e2db59a059165e550b1fcd84dba59a062c1212047453197",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-760320077e7f09338e2db59a059165e550b1fcd84dba59a062c1212047453197-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-760320077e7f09338e2db59a059165e550b1fcd84dba59a062c1212047453197-attempt-1"
+      ],
+      "elapsed_ms": 6079,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4627,
+          "outputTokens": 832,
+          "totalTokens": 6483,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 751
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-016",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-e5d3ab83c8572a7e64793188b014dc8a03dfe0c2ad7b4de3e0d160c4d9eae2ca",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-e5d3ab83c8572a7e64793188b014dc8a03dfe0c2ad7b4de3e0d160c4d9eae2ca-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-e5d3ab83c8572a7e64793188b014dc8a03dfe0c2ad7b4de3e0d160c4d9eae2ca-attempt-1"
+      ],
+      "elapsed_ms": 9988,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4573,
+          "outputTokens": 1263,
+          "totalTokens": 6860,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 1182
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-017",
+      "status": "committed",
+      "recovered": false,
+      "reviewId": "review-2e35d88841acad499fbbc0452ec376ad28b0f3840df0bf668362b9c33ceff74e",
+      "attempt": 1,
+      "changeCount": 1,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-2e35d88841acad499fbbc0452ec376ad28b0f3840df0bf668362b9c33ceff74e-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-2e35d88841acad499fbbc0452ec376ad28b0f3840df0bf668362b9c33ceff74e-attempt-1"
+      ],
+      "elapsed_ms": 41817,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4677,
+          "outputTokens": 6854,
+          "totalTokens": 12555,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 5061
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-018",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-31fea754431100f2ea1d96dc74cbb997164e63abc4ebe318db083e776e3ca305",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-31fea754431100f2ea1d96dc74cbb997164e63abc4ebe318db083e776e3ca305-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-31fea754431100f2ea1d96dc74cbb997164e63abc4ebe318db083e776e3ca305-attempt-1"
+      ],
+      "elapsed_ms": 8332,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4595,
+          "outputTokens": 1202,
+          "totalTokens": 6821,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 1121
+        }
+      ],
+      "finish_reason": "completed"
+    },
+    {
+      "session_id": "session-locomo-conv-26-019",
+      "status": "no-change",
+      "recovered": false,
+      "reviewId": "review-2b7dab61802972c3f9a73e42030ec9b0957ad836449e810b51baff6693e9a075",
+      "attempt": 1,
+      "changeCount": 0,
+      "debugLoggingEnabled": false,
+      "worker_session_id": "session-memory-review-2b7dab61802972c3f9a73e42030ec9b0957ad836449e810b51baff6693e9a075-attempt-1",
+      "worker_session_ids": [
+        "session-memory-review-2b7dab61802972c3f9a73e42030ec9b0957ad836449e810b51baff6693e9a075-attempt-1"
+      ],
+      "elapsed_ms": 6348,
+      "model_calls": 1,
+      "usage": [
+        {
+          "inputTokens": 4440,
+          "outputTokens": 791,
+          "totalTokens": 6255,
+          "cacheReadTokens": 1024,
+          "reasoningTokens": 710
+        }
+      ],
+      "finish_reason": "completed"
+    }
+  ]
+}

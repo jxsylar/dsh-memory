@@ -1,0 +1,172 @@
+{
+  "count": 152,
+  "excluded_category_5": 0,
+  "graded": 152,
+  "correct": 135,
+  "wrong": 17,
+  "errors": 0,
+  "ungraded": 0,
+  "accuracy": 0.888158,
+  "average_qa_elapsed_ms": 5274.349,
+  "by_category": {
+    "1": {
+      "name": "multi-hop",
+      "count": 31,
+      "graded": 31,
+      "correct": 26,
+      "wrong": 5,
+      "errors": 0,
+      "ungraded": 0,
+      "accuracy": 0.83871,
+      "token_f1_aux": 0.199023
+    },
+    "2": {
+      "name": "temporal",
+      "count": 27,
+      "graded": 27,
+      "correct": 23,
+      "wrong": 4,
+      "errors": 0,
+      "ungraded": 0,
+      "accuracy": 0.851852,
+      "token_f1_aux": 0.222012
+    },
+    "3": {
+      "name": "open-domain",
+      "count": 8,
+      "graded": 8,
+      "correct": 4,
+      "wrong": 4,
+      "errors": 0,
+      "ungraded": 0,
+      "accuracy": 0.5,
+      "token_f1_aux": 0.044597
+    },
+    "4": {
+      "name": "single-hop",
+      "count": 86,
+      "graded": 86,
+      "correct": 82,
+      "wrong": 4,
+      "errors": 0,
+      "ungraded": 0,
+      "accuracy": 0.953488,
+      "token_f1_aux": 0.273901
+    }
+  },
+  "token_f1_aux": 0.237344,
+  "pricing_usd_per_million_tokens": null,
+  "stages": {
+    "ingestion": {
+      "items": 32,
+      "model_calls": 102,
+      "elapsed_ms": {
+        "total": 935554,
+        "average_per_item": 29236.062,
+        "minimum": 8060,
+        "maximum": 76898
+      },
+      "tokens": {
+        "input": 139736,
+        "cache_write": 0,
+        "cache_read": 482816,
+        "output": 159836,
+        "reasoning": 34644,
+        "total": 782388
+      },
+      "metrics_complete": true,
+      "cost_usd": null,
+      "route": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash"
+      }
+    },
+    "qa": {
+      "items": 152,
+      "model_calls": 305,
+      "elapsed_ms": {
+        "total": 801701,
+        "average_per_item": 5274.349,
+        "minimum": 2622,
+        "maximum": 29495
+      },
+      "tokens": {
+        "input": 1163593,
+        "cache_write": 0,
+        "cache_read": 225408,
+        "output": 95966,
+        "reasoning": 52154,
+        "total": 1484967
+      },
+      "metrics_complete": true,
+      "cost_usd": null,
+      "route": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash"
+      },
+      "concurrency": 10,
+      "wall_elapsed_ms": 83468
+    },
+    "consolidation": {
+      "items": 32,
+      "model_calls": 32,
+      "elapsed_ms": {
+        "total": 215759,
+        "average_per_item": 6742.469,
+        "minimum": 3926,
+        "maximum": 22624
+      },
+      "tokens": {
+        "input": 248796,
+        "cache_write": 0,
+        "cache_read": 32768,
+        "output": 27106,
+        "reasoning": 24514,
+        "total": 308670
+      },
+      "metrics_complete": true,
+      "cost_usd": null,
+      "route": {
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-flash"
+      }
+    },
+    "judge": {
+      "items": 152,
+      "model_calls": 152,
+      "elapsed_ms": {
+        "total": 332617,
+        "average_per_item": 2188.27,
+        "minimum": 1020,
+        "maximum": 28518
+      },
+      "tokens": {
+        "input": 20186,
+        "cache_write": 0,
+        "cache_read": 19456,
+        "output": 24450,
+        "reasoning": 19261,
+        "total": 64092
+      },
+      "metrics_complete": true,
+      "cost_usd": null,
+      "models": [
+        "deepseek-v4-flash"
+      ]
+    }
+  },
+  "full_process": {
+    "model_calls": 591,
+    "elapsed_ms": 2285631,
+    "tokens": {
+      "input": 1572311,
+      "cache_write": 0,
+      "cache_read": 760448,
+      "output": 307358,
+      "reasoning": 130573,
+      "total": 2640117
+    },
+    "metrics_complete": true,
+    "cost_usd": null
+  }
+}
