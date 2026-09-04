@@ -111,6 +111,8 @@ class ReportTests(unittest.TestCase):
         self.assertNotIn("<", encoded)
         rendered = render_report(payload)
         self.assertIn("<!doctype html>", rendered)
+        self.assertIn('href="https://github.com/hr98w/dsh-memory"', rendered)
+        self.assertIn('aria-label="GitHub repository"', rendered)
         self.assertNotIn("</script><b>unsafe", rendered)
         self.assertNotIn("https://cdn", rendered)
 

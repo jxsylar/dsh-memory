@@ -7,3 +7,4 @@ __pycache__/
 *.pyc
 benchmark/locomo/.tmp/
 benchmark/locomo/.venv/
+benchmark/locomo/locomo10-report.html
