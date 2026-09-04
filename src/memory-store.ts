@@ -576,6 +576,9 @@ function validateWorkspaceChanges(changes: readonly WorkspaceMemoryChange[]): vo
 }
 
 function validateName(name: string): void {
+  if (`${name}.md`.toLowerCase() === INDEX_FILENAME.toLowerCase()) {
+    throw new MemoryValidationError('workspace memory name "memory" is reserved for the generated MEMORY.md index; choose a descriptive name')
+  }
   if (!NAME_PATTERN.test(name)) throw new MemoryValidationError(`workspace memory name must be kebab-case: ${name}`)
 }
 

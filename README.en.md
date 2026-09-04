@@ -35,7 +35,9 @@ The repository includes a [LoCoMo-10 benchmark](benchmark/locomo/README.md) isol
 
 ![LoCoMo-10 accuracy across three modes](docs/assets/locomo10-accuracy.svg)
 
-In this single run, Baseline scored 2.60%, Memory scored 73.05%, and Memory + Consolidate scored 77.60%. See the interactive report for complete results, experiment limitations, and per-question answers.
+In the retained results, Baseline scored 2.60%, Memory scored 73.05%, and Memory + Consolidate scored 77.60%. See the interactive report for complete results, experiment limitations, and per-question answers.
+
+Baseline receives no conversation history; both memory modes read history to form memories first. Each mode has one complete result set, not an average of repeated independent experiments. This is not a comparison against full-context answering or other memory systems. The [experiment retrospective](docs/locomo-retrospective.md) covers the setup, observations, and limitations (in Chinese).
 
 ## Design inspiration: Claude Code × Codex
 
@@ -120,6 +122,10 @@ Then restart `dsh web` completely. Bundle composition and the Host ESM entry are
 
 ## Getting started
 
+Try cross-session memory in a test Workspace: tell the Agent, “Remember: this project's release checklist is called Pinecone. Before each release, remind me to check the rollback plan.” After `memory_update` succeeds, start a new Session in the same Workspace and ask, “What are this project's release conventions?” Check the answer and the Markdown record under Workspace Memory. Keep this project-specific convention out of Global.
+
+Online memory uses the current Agent's model; the separate model setting below is only for manual Session consolidation.
+
 1. Configure and activate at least one text model in DSH Models. API keys remain under DSH ownership.
 2. Open Settings → Memory → Settings and select the provider/model used for Session consolidation.
 3. Use Global Memory for cross-project preferences and Workspace Memory for project facts and constraints.
@@ -146,6 +152,8 @@ $DSH_HOME/memory/
 - Web memory-write requests never submit a memory root, absolute path, cwd, or internal Workspace key; the header shows the Host-reported local memory root for diagnostics only;
 - Debug is off by default and does not record conversation evidence, memory/model proposal bodies, or API keys;
 - `MEMORY.md` is a rebuildable index; detailed Markdown files are authoritative Workspace data.
+
+Concurrency protection currently applies within one MemoryStore instance. Use one DSH writer process per `$DSH_HOME`; independent processes writing concurrently to the same directory can still overwrite each other's changes.
 
 “Local-first” means that authoritative memory is stored locally; it does not mean that every model operation runs offline. Normal Agent requests send the visible memory context to that Agent's model. Manual Session consolidation sends filtered conversation content, Global memory, and current Workspace memories to the model provider selected in Settings. Enable these features only when the provider's privacy policy is appropriate for your data.
 

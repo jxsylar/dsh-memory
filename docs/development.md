@@ -33,6 +33,20 @@ pnpm run build
 
 ## 本地安装冒烟
 
+### 多进程写入诊断
+
+使用 Node.js 24，在仓库根目录执行：
+
+```sh
+node --experimental-transform-types scripts/check-memory-concurrency.mjs
+```
+
+脚本创建临时记忆目录和两个独立子进程，在真实文件读取之后插入测试屏障，让两个写入者都拿到同一旧版本，再按顺序放行提交。当前 Global、Workspace 都会输出 `lostUpdate: true`。这是已知缺陷的诊断，不是安全性测试通过；退出码 0 只代表诊断正常执行。脚本退出时清理临时目录，不读取用户 DSH 配置、不调用模型。
+
+后续修复需证明旧版本最多一个提交成功，并覆盖读取与目录交换并发、锁持有进程异常退出、receipt/settings 协调；目前应使用单写入进程。
+
+### Web 安装
+
 ```sh
 pnpm run build
 dsh plugin --profile web add /absolute/path/to/dsh-memory

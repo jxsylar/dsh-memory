@@ -57,6 +57,10 @@ Global revision 是规范化后 `GLOBAL.md` UTF-8 内容的 SHA-256。Workspace 
 
 Workspace commit 在同一 scope 的进程内锁中完成：读取并比较 revision，构造下一代完整 record 集合，写到 sibling staging 目录，交换当前目录，再删除 backup。Global commit 使用同目录临时文件加 rename。所有 Markdown 统一保留一个末尾换行。
 
+锁属于 MemoryStore 实例，不是跨进程文件锁。双进程受控交错诊断已复现 Global 与 Workspace 的 lost update：两者读到同一旧版本后分别提交，均返回成功，最后只保留后写者的变化。共享 `$DSH_HOME` 当前要求单写入进程；跨进程锁、读取一致性与 receipt 协调尚未实现。复现命令见 [development.md](development.md#多进程写入诊断)。
+
+记录校验保留 `memory` 名称，防止详细文件 `memory.md` 与索引 `MEMORY.md` 在大小写不敏感的磁盘上互相覆盖。非法名称在生成目录前被拒绝，整个 batch 保持未提交。
+
 `previewWorkspaceChanges()` 是 Workspace batch 的纯计算边界。preview 与 commit 共享记录校验、内容规范化、排序、索引和 revision 算法；语义未变化的 batch 保留当前 revision 且不交换目录。
 
 ## Workspace identity

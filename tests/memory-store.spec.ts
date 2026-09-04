@@ -22,6 +22,43 @@ function store(): MarkdownMemoryStore {
 }
 
 describe('MarkdownMemoryStore', () => {
+  it.each(['global', 'workspace'])('rejects one competing %s write within the same Store', async (kind) => {
+    const memory = store()
+    memory.initialize()
+    const scope = memory.scopeForCwd('/work/concurrent')
+    const revision = kind === 'global'
+      ? (await memory.readGlobal()).revision
+      : (await memory.readWorkspace(scope)).revision
+    const outcomes = await Promise.allSettled(['first', 'second'].map(name => kind === 'global'
+      ? memory.commitGlobal({ expectedRevision: revision, content: name })
+      : memory.commitWorkspace({ scope, expectedRevision: revision, changes: [{ action: 'put', record: {
+        name, description: name, type: 'project', content: name,
+      } }] })))
+    expect(outcomes.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+    const rejected = outcomes.find(result => result.status === 'rejected')
+    expect(rejected?.status === 'rejected' && rejected.reason).toBeInstanceOf(MemoryConflictError)
+    if (kind === 'global') expect((await memory.readGlobal()).content).toBe('first\n')
+    else expect((await memory.readWorkspace(scope)).records.map(record => record.name)).toEqual(['first'])
+  })
+
+  it.each(['memory', 'MEMORY', 'Memory'])('rejects reserved index name %s without changing a generation', async (name) => {
+    const memory = store()
+    memory.initialize()
+    const scope = memory.scopeForCwd('/work/reserved')
+    await memory.commitWorkspace({ scope, expectedRevision: (await memory.readWorkspace(scope)).revision,
+      changes: [{ action: 'put', record: { name: 'existing-note', description: 'Keep this.', type: 'project', content: 'Original.' } }],
+    })
+    const before = await memory.readWorkspace(scope)
+    await expect(memory.commitWorkspace({ scope, expectedRevision: before.revision,
+      changes: [
+        { action: 'delete', name: 'existing-note' },
+        { action: 'put', record: { name, description: 'Invalid.', type: 'project', content: 'Must not publish.' } },
+      ],
+    })).rejects.toThrow(/reserved/)
+    expect(await memory.readWorkspace(scope)).toEqual(before)
+    expect(readFileSync(join(scope.directory, 'MEMORY.md'), 'utf8')).toBe(before.index)
+  })
+
   it('initializes and revision-checks GLOBAL.md', async () => {
     const memory = store()
     memory.initialize()

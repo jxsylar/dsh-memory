@@ -1,6 +1,6 @@
 # LoCoMo-10 result snapshot
 
-This directory preserves the canonical artifacts behind the published [interactive report](../locomo10-report.html). It contains one complete LoCoMo-10 run for each evaluation mode:
+This directory preserves the canonical artifacts behind the published [interactive report](https://hr98w.github.io/dsh-memory/). It contains one complete LoCoMo-10 run for each evaluation mode:
 
 ```text
 locomo10/

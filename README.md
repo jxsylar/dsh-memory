@@ -35,7 +35,9 @@
 
 ![LoCoMo-10 三种模式准确率对比](docs/assets/locomo10-accuracy.svg)
 
-本次单次运行中，Baseline 为 2.60%，Memory 为 73.05%，Memory + Consolidate 为 77.60%。完整结果、实验限制和逐题回答请查看交互式报告。
+本次保留的完整结果中，Baseline 为 2.60%，Memory 为 73.05%，Memory + Consolidate 为 77.60%。完整结果、实验限制和逐题回答请查看交互式报告。
+
+Baseline 不提供历史对话；两种记忆模式先读取历史形成记忆。每种模式保留一组完整结果，并非多次独立实验的平均值；这不是与完整上下文或其他记忆系统的横向比较。[实验复盘](docs/locomo-retrospective.md)记录了设置、观察和局限。
 
 ## 设计灵感：Claude Code × Codex
 
@@ -120,6 +122,10 @@ dsh plugin --profile web add .
 
 ## 开始使用
 
+先体验一次跨会话记忆：在测试 Workspace 中告诉 Agent：“记住，这个项目的发布检查代号是松果，每次发布前先提醒我检查回滚方案。”确认 `memory_update` 成功后，新建同一 Workspace 的 Session，问：“这个项目发布前有什么约定？”检查回答是否沿用了约定，并在“工作区记忆”中查看对应 Markdown。项目约定不要放入 Global。
+
+在线记忆使用当前 Agent 的模型；下面的独立模型设置只用于手动 Session 整理。
+
 1. 在 DSH 的 Models 页面配置并激活至少一个文本模型；API key 始终由 DSH 管理。
 2. 打开“设置 → 记忆 → 设置”，选择 Session 整理使用的模型。
 3. 在“全局记忆”保存跨项目偏好，在“工作区记忆”管理项目事实和约束。
@@ -146,6 +152,8 @@ $DSH_HOME/memory/
 - Web 的记忆写入请求不会提交记忆根目录、绝对路径、cwd 或内部 Workspace key；页面顶部仅为本机诊断显示 Host 返回的记忆根目录；
 - Debug 默认关闭，不记录对话证据、记忆正文、模型提议正文或 API key；
 - `MEMORY.md` 是可重建索引，详细 Markdown 文件才是 Workspace 权威数据。
+
+当前并发保护限于同一个 MemoryStore 实例。请让一个 DSH 进程负责同一 `$DSH_HOME` 的记忆写入；多个独立进程共享目录并发写入仍可能覆盖彼此的修改。
 
 “本地优先”指权威记忆保存在本机，并不表示所有模型处理都离线完成。正常 Agent 请求会把当前可见的记忆上下文发送给该 Agent 使用的模型；手动 Session 整理会把筛选后的对话内容、Global 记忆和当前 Workspace 记忆发送给设置页选择的模型服务商。请根据所用服务商的隐私政策决定是否启用相关功能。
 
