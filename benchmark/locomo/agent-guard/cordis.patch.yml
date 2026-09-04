@@ -1,0 +1,3 @@
+- insert:
+    - id: locomo-agent-guard
+      name: dsh-locomo-agent-guard

@@ -1,0 +1,2 @@
+deepseek-harness-sdk
+nltk>=3.9,<4

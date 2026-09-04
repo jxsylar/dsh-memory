@@ -3,3 +3,7 @@ lib/
 coverage/
 *.tgz
 .DS_Store
+__pycache__/
+*.pyc
+benchmark/locomo/.tmp/
+benchmark/locomo/.venv/

@@ -1,0 +1,8 @@
+# Keep repository/user instruction discovery and telemetry outside evaluation Agents.
+- id: agent-instructions
+  name: '@deepseek-ai/dsh-agent-instructions'
+  disabled: true
+
+- id: session-telemetry-otel
+  name: '@deepseek-ai/dsh-session-telemetry-otel'
+  disabled: true

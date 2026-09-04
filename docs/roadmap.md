@@ -10,7 +10,7 @@
 - Workspace key、frontmatter 校验、派生 `MEMORY.md`；
 - revision/CAS、scope lock 和原子提交；
 - Global 与当前 Workspace index 的动态 Prompt context；
-- `memory_update`；
+- Host-owned revision observation 与原子 batch `memory_update`；
 - loopback RPC 的 `status`、`global/read`、`global/replace`；
 - Settings 中的 Status 与 Global 编辑；
 - Host Workspace catalog、`workspaces/list`、`workspace/read` 与只读 Workspaces UI；
@@ -71,6 +71,10 @@
 完成标准：无部分写入；重复成功 review 不再次调用模型；取消、冲突、非法输出和 Provider 失败都有 receipt；整理过程可从 worker Session 回放。
 
 ## M4：真实使用后的评估
+
+LoCoMo 与 LongMemEval 的数据特点、初步适配流程、指标和实施顺序见 [evaluation-benchmarks.md](evaluation-benchmarks.md)。
+
+状态：已开始。当前已实现与插件代码隔离的 [LoCoMo-10 评测](../benchmark/locomo/README.md)，固定比较无记忆 baseline、在线 Auto Memory 和 Auto Memory + Session Consolidation，并提供 `conv-26` 与全部 10 个 sample 的批量入口。评测使用仓库外隔离沙箱、真实 Agent Session 导入、独立 QA DSH Home、受限完整 Python SDK profile 的逐题新 Session，以及与 OpenViking 一致的 category 5 过滤、独立 LLM Judge 和分类 Accuracy 汇总。Ingestion 只暴露 memory-root 受限的 `read` 与 `memory_update`；记忆 QA 只暴露 memory-root 受限的 `read`，baseline 明确没有历史、记忆或工具；各阶段都禁用仓库指令发现并设 step 上限。QA 可在一个 SDK runtime 内以独立 Session 有界并发，不同 sample 也可在独立沙箱中有界并发；记忆模式共享冻结的只读快照，并单列墙钟耗时。Consolidator 明确因 `max-tokens` 未提交 proposal 时，该 attempt 的耗时与 Token 仍被记录，但不会中止后续 Session；其他整理错误保持失败。Ingestion、QA、Consolidation、Judge 分阶段记录耗时、调用和 Token，并支持由显式费率计算阶段与全流程成本。三种模式的完整 LoCoMo-10 运行已经完成；自包含 HTML 报告汇总总体、sample、分类、成本、Prompt 与逐题结果，不包含 Agent trace。
 
 第一版闭环运行后再设计：
 

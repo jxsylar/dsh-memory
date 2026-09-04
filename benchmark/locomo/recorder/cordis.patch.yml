@@ -1,0 +1,3 @@
+- insert:
+    - id: locomo-session-recorder
+      name: dsh-locomo-session-recorder
