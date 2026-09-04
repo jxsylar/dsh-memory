@@ -152,7 +152,7 @@ Score 以 Judge Accuracy 为主，同时给出四类问题的准确率、辅助 
 benchmark/locomo/.venv/bin/python benchmark/locomo/report.py
 ```
 
-打开 [`locomo10-report.html`](locomo10-report.html) 即可查看总体与分类准确率、十组对比、分阶段成本、完整 Prompt 和可筛选的逐题结果。报告不包含 Agent trace、工具调用或完整上下文；生成过程不会调用模型。
+打开[在线交互式报告](https://hr98w.github.io/dsh-memory/)即可查看总体与分类准确率、十组对比、分阶段成本、完整 Prompt 和可筛选的逐题结果。报告不包含 Agent trace、工具调用或完整上下文；生成过程不会调用模型。
 
 本次报告对应的 canonical raw、judged、score 和 meta 文件保存在 [`results/locomo10`](results/locomo10/)，方便复核单题结果和统计来源。Runner 的默认输出仍是 Git 忽略的 `.tmp/results`；仓库内 `results` 只是经过本机路径清理的发布快照，不会被后续运行自动覆盖。
 

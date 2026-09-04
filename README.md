@@ -31,7 +31,7 @@
 
 ## 评测
 
-仓库内置与插件发布代码隔离的 [LoCoMo-10 评测](benchmark/locomo/README.md)，可对比无记忆 baseline、仅在线记忆、在线记忆加 Session 整理三种模式。评测文档提供 `conv-26` 和全部 10 个 sample 的可复制命令、环境变量、Judge、Score 与[交互式结果报告](benchmark/locomo/locomo10-report.html)。
+仓库内置与插件发布代码隔离的 [LoCoMo-10 评测](benchmark/locomo/README.md)，可对比无记忆 baseline、仅在线记忆、在线记忆加 Session 整理三种模式。评测文档提供 `conv-26` 和全部 10 个 sample 的可复制命令、环境变量、Judge、Score 与[交互式结果报告](https://hr98w.github.io/dsh-memory/)。
 
 ![LoCoMo-10 三种模式准确率对比](docs/assets/locomo10-accuracy.svg)
 

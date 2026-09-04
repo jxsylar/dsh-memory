@@ -31,7 +31,7 @@ It does not require an external memory database or dedicated memory service, nor
 
 ## Evaluation
 
-The repository includes a [LoCoMo-10 benchmark](benchmark/locomo/README.md) isolated from the published plugin code. It compares plain DSH, online memory only, and online memory plus Session consolidation. The benchmark guide provides copyable commands, environment variables, Judge, and Score steps for `conv-26` or all 10 samples, together with a self-contained [interactive results report](benchmark/locomo/locomo10-report.html).
+The repository includes a [LoCoMo-10 benchmark](benchmark/locomo/README.md) isolated from the published plugin code. It compares plain DSH, online memory only, and online memory plus Session consolidation. The benchmark guide provides copyable commands, environment variables, Judge, and Score steps for `conv-26` or all 10 samples, together with a self-contained [interactive results report](https://hr98w.github.io/dsh-memory/).
 
 ![LoCoMo-10 accuracy across three modes](docs/assets/locomo10-accuracy.svg)
 

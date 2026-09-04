@@ -152,7 +152,7 @@ After Judge and Score finish for all three modes, generate the self-contained in
 benchmark/locomo/.venv/bin/python benchmark/locomo/report.py
 ```
 
-Open [`locomo10-report.html`](locomo10-report.html) to explore overall and category accuracy, all ten sample comparisons, stage-level cost, complete Prompts, and filterable per-question results. The report excludes Agent traces, tool calls, and full context. Generating it does not call a model.
+Open the [interactive online report](https://hr98w.github.io/dsh-memory/) to explore overall and category accuracy, all ten sample comparisons, stage-level cost, complete Prompts, and filterable per-question results. The report excludes Agent traces, tool calls, and full context. Generating it does not call a model.
 
 The canonical raw, judged, score, and meta artifacts behind the current report are preserved in [`results/locomo10`](results/locomo10/) for auditing individual answers and aggregate statistics. The runner still writes to the ignored `.tmp/results` directory by default. The repository's `results` directory is a path-sanitized publication snapshot and is not overwritten by later runs.
 
