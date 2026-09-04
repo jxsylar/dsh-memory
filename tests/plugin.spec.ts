@@ -215,4 +215,118 @@ describe('Host Cordis composition', () => {
     }, signal)).toMatchObject({ ok: false, error: { code: 'bad-request' } })
     await fiber.dispose()
   })
+
+  it('keeps model-facing revisions Host-owned and commits one Workspace batch', async () => {
+    isolatedHome()
+    const ctx = new Context()
+    const contexts: unknown[] = []
+    const tools: unknown[] = []
+    ctx.provide('systemPrompt', {
+      section() { return () => undefined },
+      context(value: unknown) { contexts.push(value); return () => undefined },
+    })
+    ctx.provide('tools', {
+      register(value: unknown) { tools.push(value); return () => undefined },
+    })
+    const fiber = ctx.plugin({ inject, apply })
+    await fiber.await()
+
+    const provider = contexts[0] as {
+      text(context: { agent?: { session: { header: { cwd?: string } } } }): string
+    }
+    const tool = tools[0] as {
+      parameters: Record<string, unknown>
+      execute(
+        args: unknown,
+        exec: { agent?: { session: { header: { cwd?: string } } } },
+      ): Promise<unknown>
+    }
+    const firstAgent = { session: { header: { cwd: '/work/host-owned-revision' } } }
+    const staleAgent = { session: { header: { cwd: '/work/host-owned-revision' } } }
+    const firstContext = provider.text({ agent: firstAgent })
+    provider.text({ agent: staleAgent })
+
+    expect(firstContext).toContain('### Current Workspace Memory Index')
+    expect(firstContext).not.toContain('Revision:')
+    expect(firstContext).not.toContain('sha256:')
+    expect(JSON.stringify(tool.parameters)).not.toContain('expected_revision')
+
+    await expect(tool.execute({
+      change: {
+        action: 'update_workspace',
+        changes: [
+          {
+            action: 'put',
+            name: 'first-record',
+            description: 'Created in one model-facing batch.',
+            type: 'project',
+            content: 'First.\n',
+          },
+          {
+            action: 'put',
+            name: 'second-record',
+            description: 'Created in the same generation.',
+            type: 'feedback',
+            content: 'Second.\n',
+          },
+        ],
+      },
+    }, { agent: firstAgent })).resolves.toEqual({
+      status: 'committed',
+      scope: 'workspace',
+      change_count: 2,
+    })
+
+    const memory = ctx.get('memoryStore') as MarkdownMemoryStore
+    expect((await memory.readWorkspace(memory.scopeForCwd('/work/host-owned-revision'))).records)
+      .toHaveLength(2)
+    await expect(tool.execute({
+      change: {
+        action: 'update_workspace',
+        changes: [{
+          action: 'put',
+          name: 'third-record',
+          description: 'Uses the Host-advanced observation.',
+          type: 'reference',
+          content: 'Third.\n',
+        }],
+      },
+    }, { agent: firstAgent })).resolves.toEqual({
+      status: 'committed',
+      scope: 'workspace',
+      change_count: 1,
+    })
+    await expect(tool.execute({
+      change: { action: 'replace_global', content: '# Global Memory\n\nUpdated.\n' },
+    }, { agent: firstAgent })).resolves.toEqual({
+      status: 'committed',
+      scope: 'global',
+      change_count: 1,
+    })
+    await expect(tool.execute({
+      change: {
+        action: 'update_workspace',
+        changes: [{ action: 'delete', name: 'first-record' }],
+      },
+    }, { agent: staleAgent })).rejects.toThrow(/Memory changed after this Agent read it/)
+    await expect(tool.execute({
+      change: { action: 'replace_global', content: '# Global Memory\n\nStale.\n' },
+    }, { agent: staleAgent })).rejects.toThrow(/Memory changed after this Agent read it/)
+    await expect(tool.execute({
+      change: { action: 'replace_global', content: '# Global Memory\n\nUpdated.\n' },
+    }, {})).rejects.toThrow(/requires an active Agent/)
+
+    provider.text({ agent: staleAgent })
+    await expect(tool.execute({
+      change: {
+        action: 'update_workspace',
+        changes: [{ action: 'delete', name: 'first-record' }],
+      },
+    }, { agent: staleAgent })).resolves.toEqual({
+      status: 'committed',
+      scope: 'workspace',
+      change_count: 1,
+    })
+    await fiber.dispose()
+  })
 })

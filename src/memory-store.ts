@@ -80,6 +80,16 @@ export interface GlobalMemoryPreview extends GlobalMemoryView {
   readonly changed: boolean
 }
 
+/** Model-visible prompt text paired with Host-only generations observed while rendering it. */
+export interface MemoryContextSnapshot {
+  readonly text: string
+  readonly globalRevision: MemoryRevision
+  readonly workspace?: {
+    readonly key: string
+    readonly revision: MemoryRevision
+  }
+}
+
 /** One atomic Workspace mutation. */
 export type WorkspaceMemoryChange =
   | { readonly action: 'put'; readonly record: WorkspaceMemory }
@@ -296,30 +306,37 @@ export class MarkdownMemoryStore extends Service {
 
   /** Render the complete runtime-context snapshot for one optional cwd. */
   renderContext(cwd?: string): string {
+    return this.renderContextSnapshot(cwd).text
+  }
+
+  /** Render model-visible memory and retain its exact generations for Host-owned CAS. */
+  renderContextSnapshot(cwd?: string): MemoryContextSnapshot {
     const global = this.readGlobalSync()
     const sections = [
       '## Memory Context',
       '',
       '### Global Memory',
       '',
-      `Revision: ${global.revision}`,
-      '',
       global.content.trimEnd(),
     ]
+    let observedWorkspace: MemoryContextSnapshot['workspace']
     if (cwd !== undefined) {
       const scope = this.scopeForCwd(cwd)
       const workspace = this.readWorkspaceSync(scope)
+      observedWorkspace = { key: scope.key, revision: workspace.revision }
       sections.push(
         '',
         '### Current Workspace Memory Index',
-        '',
-        `Revision: ${workspace.revision}`,
         '',
         `Detailed memory directory: ${scope.directory}`,
       )
       if (workspace.index.trim() !== '') sections.push('', workspace.index.trimEnd())
     }
-    return `${sections.join('\n')}\n`
+    return {
+      text: `${sections.join('\n')}\n`,
+      globalRevision: global.revision,
+      ...(observedWorkspace === undefined ? {} : { workspace: observedWorkspace }),
+    }
   }
 
   /** Collect observational store totals for the Settings status banner. */

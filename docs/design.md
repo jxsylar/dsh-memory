@@ -120,10 +120,9 @@ Agent 可以在以下情况调用 `memory_update`：
 | Action | 作用 |
 |---|---|
 | `replace_global` | 使用完整 Markdown 替换 Global |
-| `put_workspace` | 在当前 Workspace 创建或完整替换一条记录 |
-| `delete_workspace` | 按 name 删除当前 Workspace 的记录 |
+| `update_workspace` | 以一个 batch 在当前 Workspace 执行完整记录的 `put` 和按 name 的 `delete` |
 
-工具不接受 root、path、cwd、Workspace key 或任意 Workspace id。Workspace scope 来自执行 Agent 的 Session cwd。每次 mutation 携带 opaque expected revision；冲突时拒绝覆盖并要求调用方重新读取。
+模型工具不接受 root、path、cwd、Workspace key、任意 Workspace id 或 revision。Workspace scope 来自执行 Agent 的 Session cwd；Host 在动态 context 组装时记录该 Agent 实际看到的 Global/Workspace revision，提交时以这份 observation 做 CAS。模型只表达修改意图，不读取、计算或搬运 revision；observation 缺失、scope 不匹配或已经过期时拒绝覆盖。Browser 与 Consolidator 的跨请求事务继续显式保存 revision。
 
 `MemoryStore` 是唯一写入口，负责格式校验、scope lock、revision 比较、原子发布和索引重建。UI 与 Session Consolidator 复用相同能力。
 

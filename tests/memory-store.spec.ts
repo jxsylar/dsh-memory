@@ -227,5 +227,7 @@ describe('MarkdownMemoryStore', () => {
     memory.initialize()
     expect(memory.renderContext()).toContain('### Global Memory')
     expect(memory.renderContext()).not.toContain('### Current Workspace Memory Index')
+    expect(memory.renderContext()).not.toContain('Revision:')
+    expect(memory.renderContext()).not.toContain('sha256:')
   })
 })

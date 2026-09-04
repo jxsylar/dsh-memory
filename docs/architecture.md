@@ -31,6 +31,7 @@ Agent step                         Web Browser
 |---|---|
 | `src/index.ts` | Host Cordis entry；组合 Service、Prompt、Tool 和 loopback RPC Consumer |
 | `src/memory-store.ts` | Markdown Provider；格式校验、revision、CAS、scope lock、原子发布和索引重建 |
+| `src/memory-observation.ts` | 将每次动态 context 的 Host-only revision 绑定到 live Agent，并为模型写入提供 CAS 前置条件 |
 | `src/protocol.ts` | Host/Browser 共用的 wire 类型和双侧运行时解析 |
 | `src/client/index.ts` | Browser Cordis entry；注册中英文字典与 `settings.section`，并封装 `/memory` Client |
 | `src/session-catalog.ts` | 基于 SessionPersistence snapshot、live Agent registry 与可选 DSH 归档状态的只读资格投影 |
@@ -78,7 +79,8 @@ AgentLoop assembles one step
   -> resolve current Session header.cwd
   -> derive current workspace key
   -> validate detailed records and derive MEMORY.md in memory
-  -> return Global + current index + detailed directory
+  -> retain Global/Workspace revisions in an Agent-bound Host observation
+  -> return only Global + current index + detailed directory
   -> existing runtime-context projection logs changed snapshots
   -> Agent uses normal read/grep/glob for selected detailed files
 ```
@@ -88,17 +90,19 @@ Prompt provider 是同步 API，因此 `MemoryStore.renderContext()` 使用同�
 ## Agent 写入流程
 
 ```text
-memory_update(change)
+memory_update(change without revision)
   -> DSH tool schema validates the discriminated union
+  -> resolve the live Agent and its latest prompt-time observation
   -> resolve Global or exec.agent.session.header.cwd
   -> MemoryStore lock + revision compare
   -> validate name/description/type/content
   -> publish Global file or complete Workspace generation
-  -> return operation + new revision
+  -> advance the Agent's Host-only observation to the new revision
+  -> return committed scope + change count without exposing revision
   -> normal DSH tool lifecycle logs call and result
 ```
 
-Tool 不接收 memory root、Workspace key、cwd 或任意路径。Workspace scope 永远来自当前执行 Agent。
+普通 Agent 不读取、计算或提交 revision。动态 context 组装时，`MemoryObservationRegistry` 以 live Agent 对象为弱引用 key，保存该 Agent 实际看到的 Global 与当前 Workspace generation；工具提交时只能使用这份 observation，缺失、scope 不匹配或已经过期都会拒绝。成功的 Workspace batch 只发布一个 generation，并在同一 Agent 继续调用工具前推进 observation。Tool 不接收 memory root、Workspace key、cwd 或任意路径，Workspace scope 永远来自当前执行 Agent。Browser 草稿与 Consolidator receipt 仍显式持有 revision，因为它们是跨请求的 Host/UI 事务，不使用 live Agent observation。
 
 ## Browser 请求流程
 
