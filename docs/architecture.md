@@ -35,6 +35,7 @@ Agent step                         Web Browser
 | `src/protocol.ts` | Host/Browser 共用的 wire 类型和双侧运行时解析 |
 | `src/client/index.ts` | Browser Cordis entry；注册中英文字典与 `settings.section`，并封装 `/memory` Client |
 | `src/session-catalog.ts` | 基于 SessionPersistence snapshot、live Agent registry 与可选 DSH 归档状态的只读资格投影 |
+| `src/session-persistence-adapter.ts` | 统一新旧 DSH persistence API；新版使用只读 handle 读取完整逻辑事件并释放资源 |
 | `src/consolidation-identity.ts` | review 与内部 worker Session 的稳定身份格式 |
 | `src/session-consolidator.ts` | M3 Host 核心；冻结稳定 Session 逻辑事件与目标 Workspace generation |
 | `src/consolidation-proposal.ts` | M3 proposal 的封闭解析、evidence 校验、规范化与 Global/Workspace preview |
@@ -47,7 +48,7 @@ Agent step                         Web Browser
 | `src/consolidation-runner.ts` | M3 手动整理编排；串联 prepare、多轮 worker、失败 receipt、replay 与 commit |
 | `src/client/MemorySection.tsx` | 响应式全局记忆、工作区记忆、会话整理与设置界面；内部 revision 不直接展示 |
 | `src/client/locales.ts` | Memory 设置页完整的 `zh` / `en` 文案字典 |
-| `cordis.patch.yml` | Bundle patch；向 Host 组合插入唯一的 `dsh-memory` row |
+| `cordis.patch.yml` | Bundle patch；插入 `dsh-memory` row，并为标准 Web Connection 补充 HTTP 路由注册依赖 |
 
 ## MemoryStore
 
@@ -110,6 +111,8 @@ memory_update(change without revision)
 
 ## Browser 请求流程
 
+Bundle 对标准 `connection` row（同时匹配 id 与包名）设置 `inject: [webRuntime, webServer]`，保留其 Web 配置依赖，并修复 DSH Electron 合并后通用 RPC 注册缺少 `webServer` 依赖的问题。模块声明的 `credentials` 仍由 Loader 合并；不改认证或请求处理逻辑。Headless 没有该 row 时补丁警告并跳过，不创建 Connection。自定义 Connection row 的额外依赖需由后加载的用户 patch 保留，因为 Bundle patch 的 `inject` 字段是替换而非追加。背景与移除条件见 [兼容性决策](decisions/implemented/bug-fix/2026-09-10-connection-webserver-injection.md)。
+
 ```text
 Memory Settings
   -> ctx.connection.rpc.call('/memory', endpoint, payload)
@@ -122,6 +125,8 @@ Memory Settings
 ```
 
 当前 endpoints 是 `status`、`global/read`、`global/replace`、`workspaces/list`、`workspace/read`、`workspace/commit`、`sessions/list`、`sessions/consolidate`、`models/read` 和 `models/select`。Host 从合法 Workspace 目录派生稳定 opaque id，Browser 只用该 id 选择详情或提交变更；所有 Workspace wire value 均不暴露 cwd、内部 key 或绝对路径。
+
+下文的 `listSnapshots()` / `inspect()` 是插件内部 persistence 接口。Host 组装时通过 `adaptSessionPersistence()` 适配：新版 DSH 使用 `list({ signal })` 与 `open(id, 'read', { signal })` → `read(0, undefined, { signal })`，在 `finally` 中关闭 handle；旧版直接使用原接口。会话列表、整理输入与 worker 恢复共用这一边界，不获取写权限、不截断历史、不扫描文件，保留 snapshot revision 和前后稳定性检查。详见 [Session persistence 兼容决策](decisions/implemented/bug-fix/2026-09-10-session-persistence-handles.md)。
 
 Workspace 编辑先保留在 Browser 草稿中。保存时 Browser 根据已读取 generation 构造确定性的 delete-then-put batch，并连同 expected revision 一次提交；Host 双重解析后重新通过 opaque id 解析目录，再调用 `MemoryStore` 做 CAS 和完整 generation 发布。冲突只返回当前 revision，不覆盖或清除 Browser 草稿。
 

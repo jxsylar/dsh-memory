@@ -8,6 +8,8 @@ Session consolidation must read a complete backend-neutral logical event log wit
 
 Introduce a Host-only `SessionConsolidator.prepare()` boundary. It observes exactly one persistence snapshot, rejects a live or cwd-less Session, resolves the Workspace through `MemoryStore`, calls `SessionPersistence.inspect()`, captures the current Workspace generation, then observes the source snapshot again. Preparation succeeds only when source metadata and revision remain identical and the Session is still not live.
 
+The internal inspection operation is mapped to read-only handles on newer Hosts by the [persistence compatibility adapter](../bug-fix/2026-09-10-session-persistence-handles.md); the freeze checks remain unchanged.
+
 The returned input contains cloned logical events, the current Workspace records and revision, a consolidator version, and a deterministic review id derived from the version, source identity, source revision, and Workspace key. The later [turn evidence projection decision](../simplification/2026-08-31-turn-evidence-projection.md) adds a deterministic model-facing projection while keeping these complete events Host-only. Preparation does not call a model or mutate memory.
 
 ## Alternatives considered

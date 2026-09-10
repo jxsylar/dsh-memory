@@ -83,6 +83,18 @@ export interface MemorySessionPersistence extends MemorySessionSnapshotPersisten
   inspect(id: string, signal?: AbortSignal): Promise<MemorySessionInspection>
 }
 
+/** Handle-based SessionPersistence face exposed by newer DSH Hosts. */
+export interface MemoryHandleSessionPersistence {
+  list(options?: { signal?: AbortSignal }): Promise<readonly MemorySessionSnapshot[]>
+  open(id: string, access: 'read', options?: { signal?: AbortSignal }): Promise<{
+    readonly header: MemorySessionSnapshot['header']
+    read(offset?: number, length?: number, options?: { signal?: AbortSignal }): Promise<{
+      readonly events: readonly unknown[]
+    }>
+    close(): Promise<void>
+  }>
+}
+
 /** Live Agent lookup used to exclude sessions that are still running. */
 export interface MemoryAgentRegistry {
   get(id: string): { readonly session?: unknown } | undefined
@@ -97,7 +109,7 @@ declare module '@deepseek-ai/cordis' {
     systemPrompt: MemorySystemPrompt
     tools: MemoryToolRegistry
     connection: MemoryHostConnection
-    sessionPersistence: MemorySessionPersistence
+    sessionPersistence: MemorySessionPersistence | MemoryHandleSessionPersistence
     agents: MemoryConsolidationAgents
     sessions: ConsolidationWorkerSessions
     llm: MemoryLlmCatalog

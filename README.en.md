@@ -108,6 +108,8 @@ dsh plugin --profile web add @hr98w/dsh-memory
 
 Restart `dsh web` completely after installation.
 
+The plugin adapts to the newer DSH Web RPC and Session persistence APIs. Restart Web after updating the plugin; refreshing the page alone is not enough.
+
 ### Install from source
 
 After cloning the repository, run these commands from its root:

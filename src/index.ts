@@ -14,6 +14,7 @@ import {
 import { MemoryObservationRegistry } from './memory-observation.ts'
 import type { MemoryToolExecution } from './host-contracts.ts'
 import { SessionCatalog } from './session-catalog.ts'
+import { adaptSessionPersistence } from './session-persistence-adapter.ts'
 import {
   DEFAULT_CONSOLIDATION_WORKER_CONFIG,
   resolveConsolidationWorkerConfig,
@@ -165,7 +166,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     sessionCtx.effect(() => {
       const catalog = new SessionCatalog(
         store,
-        sessionCtx.sessionPersistence,
+        adaptSessionPersistence(sessionCtx.sessionPersistence),
         sessionCtx.agents,
         receipts,
         () => ({
@@ -202,9 +203,10 @@ export function apply(ctx: Context, config: Config = {}): void {
 
   ctx.inject(['sessionPersistence', 'agents', 'sessions', 'systemPrompt', 'tools', 'llm'], (sessionCtx) => {
     sessionCtx.effect(() => {
+      const persistence = adaptSessionPersistence(sessionCtx.sessionPersistence)
       const consolidator = new SessionConsolidator(
         store,
-        sessionCtx.sessionPersistence,
+        persistence,
         sessionCtx.agents,
         undefined,
         excludesConsolidationWorkspace,
@@ -226,7 +228,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         ),
       )
       const commits = new ConsolidationCommitCoordinator(store, consolidator, receipts)
-      const replay = new WorkerSessionPlanReplay(sessionCtx.sessionPersistence, consolidator)
+      const replay = new WorkerSessionPlanReplay(persistence, consolidator)
       const runner = new SessionConsolidationRunner(consolidator, worker, receipts, commits, replay, store, debug)
       sessionWorker = worker
       sessionRunner = runner

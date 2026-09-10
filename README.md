@@ -108,6 +108,8 @@ dsh plugin --profile web add @hr98w/dsh-memory
 
 安装完成后请完全重启 `dsh web`。
 
+插件已适配新版 DSH 的 Web RPC 与 Session persistence 接口；更新插件后也需重启 Web，不能只刷新页面。
+
 ### 从源码安装
 
 克隆仓库后，在仓库根目录执行：

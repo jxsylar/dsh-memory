@@ -34,7 +34,7 @@ describe('Host Cordis composition', () => {
     expect(ctx.get('memoryStore')).toBeUndefined()
   })
 
-  it('registers prompt, tool, and loopback RPC Consumers when their services exist', async () => {
+  it.each(['legacy', 'handles'])('registers prompt, tool, and loopback RPC Consumers with %s persistence', async (api) => {
     isolatedHome()
     const ctx = new Context()
     const sections: unknown[] = []
@@ -58,7 +58,7 @@ describe('Host Cordis composition', () => {
         },
       },
     })
-    ctx.provide('sessionPersistence', {
+    const legacyPersistence = {
       async inspect(id: string) {
         return { meta: { id, createdAt: id === 'session-eligible' ? 2 : 1, cwd: '/work/plugin-rpc' }, events: [] }
       },
@@ -68,6 +68,21 @@ describe('Host Cordis composition', () => {
           { header: { id: 'session-live', createdAt: 1, cwd: '/work/plugin-rpc' }, revision: 'source:b' },
           { header: { id: 'session-archived', createdAt: 0, cwd: '/work/plugin-rpc' }, revision: 'source:c' },
         ]
+      },
+    }
+    let opened = 0
+    let closed = 0
+    ctx.provide('sessionPersistence', api === 'legacy' ? legacyPersistence : {
+      async list() { return legacyPersistence.listSnapshots() },
+      async open(id: string, access: string) {
+        expect(access).toBe('read')
+        opened += 1
+        const inspection = await legacyPersistence.inspect(id)
+        return {
+          header: inspection.meta,
+          async read() { return { events: inspection.events } },
+          async close() { closed += 1 },
+        }
       },
     })
     const liveSession = { id: 'session-live' }
@@ -198,6 +213,8 @@ describe('Host Cordis composition', () => {
     }, signal)).toMatchObject({ ok: false, error: { code: 'bad-request' } })
     expect(await rpcHandler?.('sessions/consolidate', { sessionId: 'session-eligible' }, signal))
       .toMatchObject({ ok: true, value: { status: 'no-change', recovered: false, attempt: 1, changeCount: 0 } })
+    expect(opened).toBe(api === 'handles' ? 1 : 0)
+    expect(closed).toBe(opened)
     expect(await rpcHandler?.('sessions/list', {}, signal)).toMatchObject({
       ok: true,
       value: { sessions: [
