@@ -67,8 +67,8 @@ dsh web --no-open
 
 1. dump config 包含 `id: dsh-memory`；
 2. Web boot 没有 `plugin tree failed to load`；
-3. `__DSH_BOOT__` 包含 `@hr98w/dsh-memory` Client；
-4. 启动页插件清单中的 `/plugins/@hr98w/dsh-memory/client.js?rev=...` 返回 Browser bundle，而不是 SPA fallback；
+3. `__DSH_BOOT__` 包含 `@jxsylar/dsh-memory` Client；
+4. 启动页插件清单中的 `/plugins/@jxsylar/dsh-memory/client.js?rev=...` 返回 Browser bundle，而不是 SPA fallback；
 5. Settings 导航出现 Memory；
 6. Global 保存后 revision 变化，旧页面保存得到 conflict；
 7. Headless 不包含 `connection` 时仍能加载 Prompt 和 Tool。
@@ -95,42 +95,9 @@ Host entry 受 Node ESM module cache 影响，修改后必须重启 Web。Client
 
 ## 发布
 
-`.github/workflows/ci.yml` 会在 pull request 和 `main` 更新时运行 `pnpm run check`。npm 发布由 `.github/workflows/publish.yml` 负责，只在推送与 `package.json#version` 完全一致的 `v*` tag 时触发；tag 所指提交还必须属于 `main`。
+`.github/workflows/ci.yml` 会在 pull request 和 `main` 更新时运行 `pnpm run check`。本 fork 的包名是 `@jxsylar/dsh-memory`，但现有 `.github/workflows/publish.yml` 明确只允许 `hr98w/dsh-memory` 仓库运行发布 job，**不会从本 fork 发布**。安装本 fork 可通过 [DSH Desktop 的「添加插件」或本地源码](../FORK.md#安装-dsh-与本-fork)，都不要求发布 npm 包；不要把尚未发布的包名写作现成的 npm 安装来源。
 
-### 首次配置 Trusted Publishing
-
-在 npm 的 `@hr98w/dsh-memory` Package Settings → Trusted Publisher 中选择 GitHub Actions，并填写：
-
-- Organization or user：`hr98w`；
-- Repository：`dsh-memory`；
-- Workflow filename：`publish.yml`；
-- Allowed action：`npm publish`；
-- Environment：留空。
-
-工作流使用 OIDC 短期凭据，不需要配置 `NPM_TOKEN`。确认首次自动发布成功后，可在 npm Publishing access 中禁止传统 token 发布，并撤销不再使用的 automation token。
-
-### 发布新版本
-
-发布前更新 `package.json#version`，并在本地运行：
-
-```sh
-npm pack --dry-run
-pnpm run check
-```
-
-检查 tarball 只包含 `package.json#files` 声明的构建产物、Bundle patch、公开文档和图片，且没有 `.env`、测试 fixture、Session 或实际 memory 数据。随后提交版本变化并创建完全匹配的 tag，例如：
-
-```sh
-git add package.json
-git commit -m "chore: release v0.1.2"
-git tag v0.1.2
-git push origin main
-git push origin v0.1.2
-```
-
-最后一次 push 会触发自动发布。`npm publish` 会执行仓库现有的 `prepack`，因此远端会再次运行 `pnpm run check`；npm Trusted Publishing 会自动为公开仓库中的公开包生成 provenance。
-
-未被明确要求时，不执行 publish、push 或创建远程仓库。
+本地检查包内容可运行 `npm pack --dry-run`，确认 tarball 只包含 `package.json#files` 声明的构建产物、Bundle patch、公开文档和图片，不包含私有配置、测试 fixture、Session 或实际 memory 数据。将来若需要发布，必须先单独确认 npm 包归属、配置 Trusted Publisher 并调整 CI 仓库限制，再验证 tag 和发布流程；本次包名更改不执行发布、推送或创建 tag。
 
 ## 变更纪律
 

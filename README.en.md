@@ -1,3 +1,5 @@
+> **Fork notice:** This repository forks [hr98w/dsh-memory](https://github.com/hr98w/dsh-memory). It shares Workspace memory between a Git main checkout and worktrees anywhere. See [FORK.md](FORK.md).
+
 <p align="center">
   <img src="docs/assets/dsh-memory-logo.png" alt="dsh-memory logo" width="180" />
 </p>
@@ -98,21 +100,17 @@ Memory appears as a dedicated section in DSH Settings:
 - DeepSeek Harness installed and a working `dsh web` command.
 - Building from source also requires Node.js `^22.19.0 || >=24.0.0` and pnpm.
 
-### Install from npm
+### Install this fork
 
-Install from npm:
+DSH Desktop **Add Plugin** accepts GitHub references: `github:jxsylar/dsh-memory` selects the default branch (use it after these changes reach `main`), while `github:jxsylar/dsh-memory#<branch-or-commit>` selects a real ref in place of the placeholder. However, the default DSH profile blocks the Git dependency build required by this repository; authorize that build first or use the local-source steps below. See [FORK.md](FORK.md#安装-dsh-与本-fork).
 
-```sh
-dsh plugin --profile web add @hr98w/dsh-memory
-```
-
-Restart `dsh web` completely after installation.
+Alternatively, install from local source below. `@jxsylar/dsh-memory` is not published to npm and cannot yet be installed by package name. Restart `dsh web` completely after installation.
 
 The plugin adapts to the newer DSH Web RPC and Session persistence APIs. Restart Web after updating the plugin; refreshing the page alone is not enough.
 
 ### Install from source
 
-After cloning the repository, run these commands from its root:
+Run these commands from the root of your local checkout:
 
 ```sh
 pnpm install

@@ -10,7 +10,7 @@ Agent step                         Web Browser
     │ Prompt context / memory_update    │ loopback RPC /memory
     ▼                                   ▼
 ┌──────────────────────────────────────────────────┐
-│ Host Cordis plugin: @hr98w/dsh-memory            │
+│ Host Cordis plugin: @jxsylar/dsh-memory           │
 │                                                  │
 │ Prompt + Tool ────────────────► MemoryStore      │
 │ Session catalog ──────────────► SessionPersistence│
@@ -66,13 +66,13 @@ Workspace commit 在同一 scope 的进程内锁中完成：读取并比较 revi
 
 ## Workspace identity
 
-v0.1 使用 lexical absolute cwd 作为身份输入：`path.resolve(cwd)` 后计算 SHA-256 的前 16 个十六进制字符，并以 cwd basename 的安全 slug 作为可读前缀：
+Host 校验 cwd 是绝对路径后，以 `path.resolve(cwd)` 规范化。同步调用 `git -C <cwd> rev-parse --path-format=absolute --git-common-dir` 查询共同 Git 目录；常规以 `.git` 结尾的目录取其父目录作身份，保留主仓库根目录原有 key；其他 Git 布局直接以共同 Git 目录作身份。因此同一仓库的主仓库、任意位置 worktree 与子目录指向同一个 Workspace。Git 查询失败、超时、输出无效或路径暂不存在时回退到 lexical cwd，不使 Prompt assembly 失败。同一 MemoryStore 对每个 cwd 缓存成功解析 60 秒、失败解析 5 秒，最多保留 128 项；这避免每次 Prompt 都同步启动 Git，但 Git 状态变化会在缓存到期后才反映。身份路径的 basename slug 与 SHA-256 前 16 位组成 key：
 
 ```text
-<slug>-<sha256(normalized-absolute-cwd)[0:16]>
+<slug>-<sha256(identity-path)[0:16]>
 ```
 
-该规则不调用 `realpath`，因此 symlink 别名是不同 Workspace；目录移动也产生新 Workspace。这样不会因目录暂时不存在而改变身份，也不会在 Prompt assembly 中触发外部文件系统解析。显式迁移/合并属于后续能力。
+`scope.cwd` 仍保留 Session 的规范化原始 cwd；只让 Host 改变目标 key 与目录。Git 可用性变化可能切换 Workspace，普通非 Git cwd 继续沿用旧 key。过去分别写入 worktree 的记忆不会自动合并；receipt 恢复继续使用已保存的旧 Workspace key。决策原因和兼容边界见 [Git worktree 身份决策](decisions/implemented/architecture/2026-10-15-git-worktree-workspace-identity.md)。
 
 ## Agent 读取流程
 
