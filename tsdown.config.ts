@@ -12,7 +12,7 @@ export default defineConfig([
     deps: { neverBundle: [/@deepseek-ai\//] },
   },
   {
-    name: '@hr98w/dsh-memory/client',
+    name: '@jxsylar/dsh-memory/client',
     entry: { client: 'src/client/index.ts' },
     format: 'cjs',
     platform: 'browser',
@@ -23,7 +23,7 @@ export default defineConfig([
     deps: { neverBundle: [/@deepseek-ai\//, 'react', 'react/jsx-runtime'] },
     outputOptions: {
       entryFileNames: 'client.js',
-      banner: 'window.__ModuleLoader__.load({ id: "@hr98w/dsh-memory", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
+      banner: 'window.__ModuleLoader__.load({ id: "@jxsylar/dsh-memory", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
       footer: 'return exports; } });',
     },
   },
