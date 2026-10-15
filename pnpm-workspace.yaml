@@ -1,0 +1,6 @@
+packages:
+  - .
+
+# Git 依赖安装时需要现场构建；仅允许构建工具的必要安装脚本。
+allowBuilds:
+  esbuild: true

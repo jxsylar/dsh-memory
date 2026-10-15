@@ -1,3 +1,5 @@
+> **Fork 说明：** 本仓库是 [hr98w/dsh-memory](https://github.com/hr98w/dsh-memory) 的 fork；新增 Git 主仓库与任意位置 worktree 共享 Workspace 记忆，详情见 [FORK.md](FORK.md)。
+
 <p align="center">
   <img src="docs/assets/dsh-memory-logo.png" alt="dsh-memory logo" width="180" />
 </p>
@@ -98,21 +100,17 @@ Memory 会作为 DSH Settings 中的独立栏目出现：
 - 已安装 DeepSeek Harness，并且 `dsh web` 可以正常启动。
 - 从源码构建还需要 Node.js `^22.19.0 || >=24.0.0` 和 pnpm。
 
-### npm 安装
+### 安装本 fork
 
-通过 npm 安装：
+DSH Desktop「添加插件」支持 GitHub 引用：`github:jxsylar/dsh-memory` 指向默认分支（本次改动合入 `main` 后使用）；其他版本可输入 `github:jxsylar/dsh-memory#<分支名或提交哈希>`，占位符需替换为实际引用。但默认 DSH profile 会阻止本仓库 Git 依赖的构建，直接安装需要先授权；见 [FORK.md](FORK.md#安装-dsh-与本-fork)。
 
-```sh
-dsh plugin --profile web add @hr98w/dsh-memory
-```
-
-安装完成后请完全重启 `dsh web`。
+也可以按下方步骤从本地源码安装。包名 `@jxsylar/dsh-memory` 尚未发布到 npm，不能用该包名安装；安装完成后请完全重启 `dsh web`。
 
 插件已适配新版 DSH 的 Web RPC 与 Session persistence 接口；更新插件后也需重启 Web，不能只刷新页面。
 
 ### 从源码安装
 
-克隆仓库后，在仓库根目录执行：
+在本地仓库根目录执行：
 
 ```sh
 pnpm install

@@ -43,7 +43,7 @@ $DSH_HOME/memory/
 
 `GLOBAL.md` 是一份完整 Markdown，建议使用 `User Profile`、`User Preferences` 和 `General Tips` 三个章节。单个项目里的观察不能自动提升为 Global。
 
-Workspace key 由 `path.resolve(cwd)` 的 basename slug 和路径 SHA-256 前 16 位组成。它不调用 `realpath`，所以 symlink 别名和移动后的目录属于新 Workspace；迁移与合并留给后续能力。
+Workspace 属于项目：可识别的 Git 仓库以共同 Git 目录定位，使主仓库、任意位置的 worktree 和仓库子目录共用一份项目记忆；常规 `.git/` 布局保留主仓库根目录的旧 key。其他 cwd 按 `path.resolve(cwd)` 的 lexical 绝对路径定位；不自动迁移或合并过去独立 worktree 的记忆。身份变化的边界与技术细节见 [架构文档](architecture.md#workspace-identity)。
 
 模型只获得 Global 和当前 Workspace 的路径。第一版不披露或主动搜索其他 Workspace。普通文件工具下的这条规则是 Prompt policy，不是敌对输入下的文件权限隔离；所有写入仍由 Host 强制限定 scope。
 
