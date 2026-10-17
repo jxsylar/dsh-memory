@@ -1,40 +1,64 @@
-/** Check the shipped Bundle against a real DSH source checkout, without user profiles or model calls.
+/** Check the Bundle against a DSH checkout or macOS Desktop app, without user profiles or model calls.
  * Usage: node scripts/check-memory-rpc.mjs /absolute/path/to/deepseek-harness
+ *        node scripts/check-memory-rpc.mjs '/Applications/DeepSeek Harness.app'
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { registerHooks } from 'node:module'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const script = fileURLToPath(import.meta.url)
 if (process.argv[2] !== '--child') {
-  assert(process.argv[2], 'Pass the DSH source checkout path')
-  const result = spawnSync(process.execPath, ['--import', 'tsx/esm', script, '--child'], {
-    cwd: resolve(process.argv[2]), stdio: 'inherit', timeout: 30_000,
-  })
+  assert(process.argv[2], 'Pass the DSH source checkout or macOS Desktop app path')
+  const target = resolve(process.argv[2])
+  const desktop = target.endsWith('.app')
+  const result = spawnSync(desktop ? join(target, 'Contents/MacOS/DeepSeek Harness') : process.execPath,
+    desktop ? [script, '--child', join(target, 'Contents/Resources/app.asar/dsh')]
+      : ['--import', 'tsx/esm', script, '--child'], {
+      cwd: desktop ? undefined : target,
+      env: desktop ? { ...process.env, ELECTRON_RUN_AS_NODE: '1' } : process.env,
+      stdio: 'inherit', timeout: 30_000,
+    })
   if (result.error) throw result.error
   process.exit(result.status ?? 1)
 }
 
-const fromDsh = path => import(pathToFileURL(resolve(path)).href)
-const { Context, Inject } = await fromDsh('vendor/cordis/src/index.ts')
-const { applyEntryPatches, entryListSchema } = await fromDsh('vendor/include/src/index.ts')
-const { HostConnectionService } = await fromDsh('packages/client/connection/src/rpc-host.ts')
-const { inject: connectionInject } = await fromDsh('packages/client/connection/src/index.ts')
+const desktopRoot = process.argv[3]
+if (desktopRoot) {
+  // Match the Host's shared package resolution instead of loading a second Cordis tree.
+  const parentURL = pathToFileURL(join(desktopRoot, 'package.json')).href
+  registerHooks({ resolve(specifier, context, nextResolve) {
+    return nextResolve(specifier, specifier.startsWith('@deepseek-ai/')
+      ? { ...context, parentURL } : context)
+  } })
+}
+const fromDsh = (source, packaged = source) => import(pathToFileURL(
+  desktopRoot ? join(desktopRoot, packaged) : resolve(source),
+).href)
+const { Context, Inject } = await fromDsh('vendor/cordis/src/index.ts', 'node_modules/@deepseek-ai/cordis/lib/index.js')
+const { applyEntryPatches, entryListSchema } = await fromDsh('vendor/include/src/index.ts', 'node_modules/@deepseek-ai/cordis-plugin-include/lib/index.js')
+const { HostConnectionService } = await fromDsh('packages/client/connection/src/rpc-host.ts', 'node_modules/@deepseek-ai/dsh-client-connection/lib/index.js')
+const { inject: connectionInject } = await fromDsh('packages/client/connection/src/index.ts', 'node_modules/@deepseek-ai/dsh-client-connection/lib/index.js')
 const { default: yaml } = await fromDsh('node_modules/js-yaml/index.js')
 const memory = await import('../lib/index.mjs')
 const patches = yaml.load(readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8'), { schema: entryListSchema })
 let warnings = []
 const warn = (...args) => warnings.push(args)
-const webEntries = applyEntryPatches([], yaml.load(readFileSync(resolve('packages/bundle/web-app/cordis.patch.yml'), 'utf8'), { schema: entryListSchema }), () => {})
+const webPatch = desktopRoot ? join(desktopRoot, 'node_modules/@deepseek-ai/dsh-web-app/cordis.patch.yml')
+  : resolve('packages/bundle/web-app/cordis.patch.yml')
+const webEntries = applyEntryPatches([], yaml.load(readFileSync(webPatch, 'utf8'), { schema: entryListSchema }), () => {})
 const original = webEntries.find(entry => entry.id === 'connection')
 assert(original, 'Standard Web Connection row must exist')
 const patched = applyEntryPatches([original], patches, warn)
 assert.equal(warnings.length, 0)
 assert.deepEqual(patched[0].config, original.config, 'Preserve authentication and runtime config')
-assert.deepEqual(patched[0].inject, ['webRuntime', 'webServer'])
+assert.deepEqual(patched[0].inject, ['webStartup', 'webServer'])
+for (const dependency of Object.keys(Inject.resolve(original.inject))) {
+  assert(dependency in Inject.resolve(patched[0].inject), `Preserve config dependency: ${dependency}`)
+}
 
 warnings = []
 const headless = applyEntryPatches([], patches, warn)
@@ -55,7 +79,7 @@ try {
       if (entry) {
         await ctx.plugin({ apply(provider) {
           provider.provide('credentials', {})
-          provider.provide('webRuntime', {})
+          provider.provide('webStartup', { trustedHosts: [] })
           provider.provide('webServer', { register(route) {
             routes.set(route.path, route)
             return () => routes.delete(route.path)

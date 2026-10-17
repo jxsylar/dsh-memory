@@ -106,7 +106,7 @@ DSH Desktop **Add Plugin** accepts GitHub references: `github:jxsylar/dsh-memory
 
 Alternatively, install from local source below. `@jxsylar/dsh-memory` is not published to npm and cannot yet be installed by package name. Restart `dsh web` completely after installation.
 
-The plugin adapts to the newer DSH Web RPC and Session persistence APIs. Restart Web after updating the plugin; refreshing the page alone is not enough.
+The plugin supports Desktop `0.2.1-rc.1`'s `webStartup` dependency, Web RPC, and Session persistence APIs. If enabling an older plugin reports `connection (required) webRuntime`, update the plugin; this is not application file corruption. Restart Desktop / Web completely after updating; refreshing the page alone is not enough.
 
 ### Install from source
 
