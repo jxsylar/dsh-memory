@@ -106,7 +106,7 @@ DSH Desktop「添加插件」支持 GitHub 引用：`github:jxsylar/dsh-memory` 
 
 也可以按下方步骤从本地源码安装。包名 `@jxsylar/dsh-memory` 尚未发布到 npm，不能用该包名安装；安装完成后请完全重启 `dsh web`。
 
-插件已适配新版 DSH 的 Web RPC 与 Session persistence 接口；更新插件后也需重启 Web，不能只刷新页面。
+插件适配 Desktop `0.2.1-rc.1` 的 `webStartup` 依赖、Web RPC 与 Session persistence 接口。若旧版插件启用后报 `connection (required) webRuntime`，请更新插件；这不是应用文件损坏。更新后需完全重启 Desktop / Web，不能只刷新页面。
 
 ### 从源码安装
 

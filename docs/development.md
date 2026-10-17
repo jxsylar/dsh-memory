@@ -47,11 +47,13 @@ node --experimental-transform-types scripts/check-memory-concurrency.mjs
 
 ### Web 安装
 
-验证 Connection 兼容补丁（需要已安装依赖的 DSH 源码仓库；不读取用户 profile、不调用模型）：
+验证 Connection 兼容补丁（使用已安装依赖的 DSH 源码仓库或 macOS Desktop 安装包；不读取用户 profile、不调用模型）：
 
 ```sh
 pnpm run build
 node scripts/check-memory-rpc.mjs /absolute/path/to/deepseek-harness
+# 或直接验证已安装 Desktop 归档内的实际 Connection 与补丁算法
+node scripts/check-memory-rpc.mjs '/Applications/DeepSeek Harness.app'
 ```
 
 脚本使用真实补丁算法和 Connection，检查同级服务提供方的 RPC 注册、子 fiber 失败、路由卸载，以及缺少 Connection 的 Headless 组合。它只创建临时记忆目录并在退出时清理，不启动 HTTP 服务或验证浏览器认证。真实页面仍需按下面步骤人工验证。标准 Headless 没有 `connection` row 时会提示跳过该补丁，不影响启动。
